@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS sources (
+    id BIGSERIAL PRIMARY KEY,
+	name VARCHAR UNIQUE NOT NULL,
+	update_interval INTERVAL,
+	last_update TIMESTAMP
+);

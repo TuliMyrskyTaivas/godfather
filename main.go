@@ -80,6 +80,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	err = db.Migrate()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	service := echo.New()
 	service.Use(slogecho.New(logger.WithGroup("http")))
