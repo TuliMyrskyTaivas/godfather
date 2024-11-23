@@ -1,4 +1,4 @@
 CREATE TABLE IF NOT EXISTS terms (
     id BIGSERIAL PRIMARY KEY,
     term VARCHAR
-)
+);

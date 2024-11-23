@@ -5,4 +5,4 @@ CREATE TABLE IF NOT EXISTS articles (
     uri VARCHAR NOT NULL,
     headline VARCHAR NOT NULL,
     metadata JSONB
-)
+);
