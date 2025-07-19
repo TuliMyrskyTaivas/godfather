@@ -31,7 +31,7 @@ func (db *Database) Migrate() error {
 	if err != nil {
 		return err
 	}
-	m, err := migrate.NewWithDatabaseInstance("file://db/migrations", "pgx5", instance)
+	m, err := migrate.NewWithDatabaseInstance("file://migrations", "pgx5", instance)
 	if err != nil {
 		return err
 	}

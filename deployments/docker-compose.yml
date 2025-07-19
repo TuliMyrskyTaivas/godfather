@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:latest
+    ports:
+      - '5432:5432'
+    volumes:
+      - 'godfather:/var/lib/postgresql/data'
+    env_file: godfather.env
+  godfather:
+    image: godfather-cmd:multistage
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - '8443:8443'
+    depends_on:
+      - postgres
+    env_file: godfather.env
+
+volumes:
+  godfather:
+
