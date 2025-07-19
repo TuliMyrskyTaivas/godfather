@@ -9,10 +9,10 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
 	slogecho "github.com/samber/slog-echo"
 	slogformatter "github.com/samber/slog-formatter"
 
-	"github.com/TuliMyrskyTaivas/godfather/godfather"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
