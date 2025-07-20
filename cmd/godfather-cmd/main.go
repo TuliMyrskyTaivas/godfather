@@ -89,8 +89,8 @@ func main() {
 	service.Use(slogecho.New(logger.WithGroup("http")))
 	service.Use(middleware.Recover())
 
-	service.File("/*", "ui/dist/ui/brower/index.html")
-	service.Static("/", "ui/dist/ui/browser")
+	service.File("/*", "brower/index.html")
+	service.Static("/", "browser")
 
 	service.GET("/sources", godfather.GetSources(db))
 	service.PUT("/sources", godfather.PutSource(db))
