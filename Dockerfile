@@ -1,12 +1,19 @@
-FROM golang:1.24 AS build-stage
-
+FROM golang:1.24 AS lint-stage
+RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.2.2
 WORKDIR /app
-
+COPY deployments/golangci-lint.yml /app/.golangci.yml
 COPY go.mod go.sum ./
 RUN go mod download
-
-COPY internal/ ./internal/
+# Copy the source code into the container
 COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+RUN golangci-lint run --timeout 5m --config /app/.golangci.yml
+
+FROM golang:1.24 AS build-stage
+WORKDIR /app
+#COPY go.mod go.sum ./
+#RUN go mod download
+COPY --from=lint-stage /app /app
 RUN CGO_ENABLED=0 GOOS=linux go build -o /godfather-cmd ./cmd/godfather-cmd
 
 # Run the tests in the container

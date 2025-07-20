@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -28,7 +29,7 @@ type Config struct {
 func ReadConfig(path string) (Config, error) {
 	var config Config
 	if path != "" {
-		raw, err := os.ReadFile(path)
+		raw, err := os.ReadFile(filepath.Clean(path))
 		if err != nil {
 			return config, err
 		}
