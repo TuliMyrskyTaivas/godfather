@@ -17,7 +17,7 @@ WORKDIR /app
 COPY --from=go-lint-stage /app /app
 COPY --from=go-lint-stage /go/pkg/mod /go/pkg/mod
 RUN ls -lR /
-RUN CGO_ENABLED=0 GOOS=linux go build -o /godfather-cmd ./cmd/godfather-cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -gcflags="all=-N -l" -o /godfather-cmd ./cmd/godfather-cmd
 
 # Run the tests in the container
 FROM go-build-stage AS go-run-test-stage
@@ -32,15 +32,15 @@ COPY web/ .
 RUN npm run build -- --configuration=production
 
 # Deploy the application into a separate lean image
-FROM gcr.io/distroless/base-debian11 AS build-release-stage
+FROM gcr.io/distroless/base-debian12:debug AS build-release-stage
 WORKDIR /
 COPY --from=go-build-stage /godfather-cmd /godfather-cmd
 COPY --from=angular-build-stage /app/dist/ui/browser /browser
-COPY --from=go-lint-stage /go/bin/dlv /usr/loca/bin/dlv
+COPY --from=go-lint-stage /go/bin/dlv /usr/local/bin/dlv
 COPY configs/godfather.json /godfather.json
 COPY deployments/godfather.key /godfather.key
 COPY deployments/godfather.crt /godfather.crt
 COPY db/migrations/ /migrations
 EXPOSE 9443
 USER nonroot:nonroot
-ENTRYPOINT [ "/godfather-cmd", "-v", "-c", "godfather.json" ]
+ENTRYPOINT ["/usr/local/bin/dlv", "exec", "/godfather-cmd", "--listen=:40000", "--headless=true", "--api-version=2", "--", "-v", "-c", "godfather.json"]

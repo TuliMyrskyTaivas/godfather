@@ -1,8 +1,8 @@
 {
     "interface":
     {
-        "addr": "127.0.0.1",
-        "port": 8443,
+        "addr": "0.0.0.0",
+        "port": 9443,
         "tls":
         {
             "cert": "godfather.crt",

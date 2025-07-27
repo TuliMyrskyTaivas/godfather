@@ -1,0 +1,10 @@
+services:
+  godfather:
+    volumes:
+      - '../:/app:cached'
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 40000:40000
