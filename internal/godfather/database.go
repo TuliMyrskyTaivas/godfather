@@ -37,7 +37,7 @@ func (db *Database) Migrate() error {
 	}
 
 	err = m.Up()
-	if err != nil {
+	if err != nil && err != migrate.ErrNoChange {
 		return err
 	}
 
