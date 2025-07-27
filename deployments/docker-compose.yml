@@ -6,16 +6,18 @@ services:
     volumes:
       - 'godfather:/var/lib/postgresql/data'
     env_file: godfather.env
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U godfather"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
   godfather:
     image: godfather-cmd:multistage
-    cap_add:
-      - SYS_PTRACE
-    security_opt:
-      - seccomp:unconfined
     ports:
-      - '8443:8443'
+      - '9443:9443'
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     env_file: godfather.env
 
 volumes:
