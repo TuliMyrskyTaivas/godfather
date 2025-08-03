@@ -1,7 +1,12 @@
+# Lint stage
 FROM golang:1.24 AS go-lint-stage
 RUN curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.2.2
 WORKDIR /app
+# Install Delve
+RUN go install github.com/go-delve/delve/cmd/dlv@latest
+# Copy the GolangCI configuration file
 COPY deployments/golangci-lint.yml /app/.golangci.yml
+# Copy the Go module files and download dependencies
 COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 # Copy the source code into the container
@@ -9,8 +14,7 @@ COPY cmd/ ./cmd/
 COPY internal/ ./internal/
 # Run linters
 RUN golangci-lint run --timeout 5m --config /app/.golangci.yml
-# Install Delve
-RUN go install github.com/go-delve/delve/cmd/dlv@latest
+
 
 FROM golang:1.24 AS go-build-stage
 WORKDIR /app
@@ -18,9 +22,11 @@ COPY --from=go-lint-stage /app /app
 COPY --from=go-lint-stage /go/pkg/mod /go/pkg/mod
 RUN ls -lR /
 RUN CGO_ENABLED=0 GOOS=linux go build -gcflags="all=-N -l" -o /godfather-cmd ./cmd/godfather-cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -gcflags="all=-N -l" -o /moexmon-cmd ./cmd/moexmon-cmd
 
 # Run the tests in the container
 FROM go-build-stage AS go-run-test-stage
+WORKDIR /app
 RUN go test -v ./...
 
 # Build Angular frontend
@@ -44,3 +50,10 @@ COPY db/migrations/ /migrations
 EXPOSE 9443
 USER nonroot:nonroot
 ENTRYPOINT ["/usr/local/bin/dlv", "exec", "/godfather-cmd", "--listen=:40000", "--headless=true", "--api-version=2", "--", "-v", "-c", "godfather.json"]
+
+# Deploy the MOEX Monitor application into a separate lean image
+FROM gcr.io/distroless/base-debian12 AS moexmon-cmd
+WORKDIR /
+COPY --from=go-build-stage /moexmon-cmd /moexmon-cmd
+USER nonroot:nonroot
+ENTRYPOINT [ "/usr/local/bin/dlv", "exec", "/moexmon-cmd", "--listen=:40000", "--headless=true", "--api-version=2", "--", "-v" ]

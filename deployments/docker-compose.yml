@@ -12,9 +12,15 @@ services:
       timeout: 3s
       retries: 5
   godfather:
-    image: godfather-cmd:multistage
+    image: godfather:latest
     ports:
       - '9443:9443'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: godfather.env
+  moexmon:
+    image: moexmon:latest
     depends_on:
       postgres:
         condition: service_healthy
