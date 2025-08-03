@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS moex_assets (
     ticker VARCHAR PRIMARY KEY,
-    class_id VARCHAR REFERENCES moex_api_url,
+    class_id VARCHAR NOT NULL,
     name VARCHAR NOT NULL
 );

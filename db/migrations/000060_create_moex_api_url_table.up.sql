@@ -1,4 +1,0 @@
-CREATE TABLE IF NOT EXISTS moex_api_url (
-    class VARCHAR PRIMARY KEY,
-    url VARCHAR NOT NULL
-)

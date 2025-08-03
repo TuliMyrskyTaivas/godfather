@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS moex_api_url;
