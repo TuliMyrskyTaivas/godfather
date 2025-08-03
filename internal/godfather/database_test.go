@@ -14,11 +14,11 @@ func TestGetMOEXWatchlist_Success(t *testing.T) {
 	}
 	defer db.Close() //nolint:errcheck
 
-	columns := []string{"ticker", "notification_id", "target_price", "condition"}
+	columns := []string{"ticker", "notification_id", "target_price", "condition", "is_active"}
 	mock.ExpectQuery("SELECT moex_assets.ticker").
 		WillReturnRows(sqlmock.NewRows(columns).
-			AddRow("SBER", 1, 250.5, "above").
-			AddRow("GAZP", 2, 150.0, "below"))
+			AddRow("SBER", 1, 250.5, "above", true).
+			AddRow("GAZP", 2, 150.0, "below", false))
 
 	database := &Database{handle: db}
 	watchlist, err := database.GetMOEXWatchlist()
@@ -57,10 +57,10 @@ func TestGetMOEXWatchlist_ScanError(t *testing.T) {
 	}
 	defer db.Close() //nolint:errcheck
 
-	columns := []string{"ticker", "notification_id", "target_price", "condition"}
+	columns := []string{"ticker", "notification_id", "target_price", "condition", "is_active"}
 	mock.ExpectQuery("SELECT moex_assets.ticker").
 		WillReturnRows(sqlmock.NewRows(columns).
-			AddRow("SBER", "not-an-int", 250.5, "above"))
+			AddRow("SBER", "not-an-int", 250.5, "above", true))
 
 	database := &Database{handle: db}
 	_, err = database.GetMOEXWatchlist()

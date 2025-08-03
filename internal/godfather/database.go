@@ -22,6 +22,7 @@ type MOEXWatchlistItem struct {
 	NotificationID int
 	TargetPrice    float64
 	Condition      string
+	Active         bool
 }
 
 // ----------------------------------------------------------------
@@ -99,7 +100,7 @@ func (db *Database) Close() error {
 // Get MOEX watchlist from the database
 // ----------------------------------------------------------------
 func (db *Database) GetMOEXWatchlist() ([]MOEXWatchlistItem, error) {
-	rows, err := db.handle.Query("SELECT moex_assets.ticker, moex_watchlist.notification_id, moex_watchlist.target_price, moex_watchlist.condition FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker")
+	rows, err := db.handle.Query("SELECT moex_assets.ticker, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker")
 	if err != nil {
 		return nil, fmt.Errorf("failed to query MOEX watchlist: %w", err)
 	}
@@ -112,7 +113,7 @@ func (db *Database) GetMOEXWatchlist() ([]MOEXWatchlistItem, error) {
 	var watchlist []MOEXWatchlistItem
 	for rows.Next() {
 		var item MOEXWatchlistItem
-		if err := rows.Scan(&item.Ticker, &item.NotificationID, &item.TargetPrice, &item.Condition); err != nil {
+		if err := rows.Scan(&item.Ticker, &item.NotificationID, &item.TargetPrice, &item.Condition, &item.Active); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		watchlist = append(watchlist, item)

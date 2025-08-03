@@ -55,5 +55,6 @@ ENTRYPOINT [ "/godfather-cmd", "-v", "-c", "godfather.json" ]
 FROM gcr.io/distroless/base-debian12 AS moexmon-cmd
 WORKDIR /
 COPY --from=go-build-stage /moexmon-cmd /moexmon-cmd
+COPY configs/moexmon.json /moexmon.json
 USER nonroot:nonroot
-ENTRYPOINT [ "/moexmon-cmd", "-v" ]
+ENTRYPOINT [ "/moexmon-cmd", "-v", "-c", "moexmon.json" ]

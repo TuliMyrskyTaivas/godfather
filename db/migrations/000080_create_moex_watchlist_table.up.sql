@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS moex_watchlist (
     ticker_id VARCHAR REFERENCES moex_assets,
     notification_id INTEGER REFERENCES notifications,
     target_price MONEY,
-    condition VARCHAR NOT NULL
+    condition VARCHAR NOT NULL,
+    is_active BOOLEAN DEFAULT TRUE
 );

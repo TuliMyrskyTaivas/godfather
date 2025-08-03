@@ -8,3 +8,15 @@ services:
       - seccomp:unconfined
     ports:
       - 40000:40000
+  moexmon:
+    volumes:
+      - '../:/app:cached'
+    cap_add:
+      - SYS_PTRACE
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - 40001:40000
+      - 9191:9191
+    depends_on:
+      - godfather

@@ -87,11 +87,12 @@ linters-settings:
 issues:
   exclude-rules:
     # Exclude some linters from test files
-    - path: _test\.go$
+    - path: '(.+)_test\.go'
       linters:
         - gocyclo
         - gocritic
         - gosec
+        - errcheck
 
     # Allow common test helper patterns
     - text: "Error return value of .* is not checked"

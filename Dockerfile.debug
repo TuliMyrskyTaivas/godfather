@@ -56,4 +56,4 @@ FROM gcr.io/distroless/base-debian12 AS moexmon-cmd
 WORKDIR /
 COPY --from=go-build-stage /moexmon-cmd /moexmon-cmd
 USER nonroot:nonroot
-ENTRYPOINT [ "/usr/local/bin/dlv", "exec", "/moexmon-cmd", "--listen=:40000", "--headless=true", "--api-version=2", "--", "-v" ]
+ENTRYPOINT [ "/usr/local/bin/dlv", "exec", "/moexmon-cmd", "--listen=:40000", "--headless=true", "--api-version=2", "--", "-v", "-c", "moexmon.json" ]
