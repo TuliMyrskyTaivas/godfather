@@ -1,7 +1,7 @@
 {
     "check_interval_seconds": 60,
     "prometheus": {
-        "port": 909,
+        "port": 9191,
         "url": "/metrics"
     },
     "database": {

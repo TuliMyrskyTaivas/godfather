@@ -25,6 +25,12 @@ var dbFailures = prometheus.NewCounter(
 		Help: "Number of database failures when retrieving MOEX watchlist",
 	},
 )
+var moexFailures = prometheus.NewCounter(
+	prometheus.CounterOpts{
+		Name: "moexmon_net_failures",
+		Help: "Number of failures when querying MOEX",
+	},
+)
 
 // ----------------------------------------------------------------
 func setupLogger(verbose bool) *slog.Logger {
@@ -50,7 +56,7 @@ func setupLogger(verbose bool) *slog.Logger {
 
 // ----------------------------------------------------------------
 func startMetrics(ctx context.Context, url string, port int) {
-	slog.Info("Starting Prometheus metrics server...")
+	slog.Info(fmt.Sprintf("Starting Prometheus metrics server at http://localhost:%d/%s...", port, url))
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector())
@@ -80,7 +86,7 @@ func startMetrics(ctx context.Context, url string, port int) {
 }
 
 // ----------------------------------------------------------------
-func startMonitoring(ctx context.Context, db *godfather.Database, interval_sec int) {
+func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database, interval_sec int) {
 	slog.Info("Starting MOEX monitoring...")
 
 	ticker := time.NewTicker(time.Duration(interval_sec) * time.Second)
@@ -99,6 +105,39 @@ func startMonitoring(ctx context.Context, db *godfather.Database, interval_sec i
 				continue
 			}
 			slog.Debug(fmt.Sprintf("MOEX watchlist retrieved with %d items", len(watchlist)))
+
+			// Fetch prices for stocks, bonds, and currencies
+			stockPrices, err := moex.FetchStocks(ctx)
+			if err != nil {
+				slog.Error("Failed to fetch stock prices", "error", err)
+				moexFailures.Inc()
+				continue
+			}
+			slog.Debug(fmt.Sprintf("Fetched stock prices for %d stocks", len(stockPrices)))
+			bondPrices, err := moex.FetchBonds(ctx)
+			if err != nil {
+				slog.Error("Failed to fetch bond prices", "error", err)
+				moexFailures.Inc()
+				continue
+			}
+			slog.Debug(fmt.Sprintf("Fetched bond prices for %d bonds", len(bondPrices)))
+			currencyPrices, err := moex.FetchCurrencies(ctx)
+			if err != nil {
+				slog.Error("Failed to fetch currency prices", "error", err)
+				moexFailures.Inc()
+				continue
+			}
+			slog.Debug(fmt.Sprintf("Fetched currency prices for %d currencies", len(currencyPrices)))
+
+			for _, watchlistItem := range watchlist {
+				price, exists := stockPrices[watchlistItem.Ticker]
+				if !exists {
+					slog.Warn(fmt.Sprintf("Price for watchlist item %s not found in MOEX", watchlistItem.Ticker))
+					continue
+				}
+
+				slog.Info(fmt.Sprintf("Current price for %s: %.2f", watchlistItem.Ticker, price))
+			}
 		}
 	}
 }
@@ -148,9 +187,12 @@ func main() {
 		}
 	}()
 
+	// Create a new MOEX requester
+	moexRequester := newMoexRequester()
+
 	// Start the routines
 	go startMetrics(ctx, config.Prometheus.URL, config.Prometheus.Port)
-	go startMonitoring(ctx, db, config.CheckIntervalSeconds)
+	go startMonitoring(ctx, moexRequester, db, config.CheckIntervalSeconds)
 
 	// Wait for the signal to stop
 	<-ctx.Done()
