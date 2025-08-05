@@ -126,100 +126,9 @@ func (badReader) Read(p []byte) (int, error) { return 0, errors.New("read error"
 func (badReader) Close() error               { return nil }
 
 // ----------------------------------------------------------------
-func TestGetPriceList_ValidData(t *testing.T) {
-	mp := moexPrices{
-		Marketdata: struct {
-			Columns []string `json:"columns"`
-			Data    [][]any  `json:"data"`
-		}{
-			Columns: []string{"SECID", "LAST"},
-			Data: [][]any{
-				{"AAPL", 123.45},
-				{"GOOG", 234.56},
-			},
-		},
-	}
-	prices := mp.getPriceList()
-	if len(prices) != 2 {
-		t.Errorf("expected 2 prices, got %d", len(prices))
-	}
-	if prices["AAPL"] != 123.45 {
-		t.Errorf("expected AAPL price 123.45, got %v", prices["AAPL"])
-	}
-	if prices["GOOG"] != 234.56 {
-		t.Errorf("expected GOOG price 234.56, got %v", prices["GOOG"])
-	}
-}
-
-// ----------------------------------------------------------------
-func TestGetPriceList_InvalidTypes(t *testing.T) {
-	mp := moexPrices{
-		Marketdata: struct {
-			Columns []string `json:"columns"`
-			Data    [][]any  `json:"data"`
-		}{
-			Columns: []string{"SECID", "LAST"},
-			Data: [][]any{
-				{123, 123.45},        // SECID not string
-				{"AAPL", "notfloat"}, // price not float64
-				{"GOOG", 234.56},     // valid
-			},
-		},
-	}
-	prices := mp.getPriceList()
-	if len(prices) != 1 {
-		t.Errorf("expected 1 valid price, got %d", len(prices))
-	}
-	if prices["GOOG"] != 234.56 {
-		t.Errorf("expected GOOG price 234.56, got %v", prices["GOOG"])
-	}
-}
-
-// ----------------------------------------------------------------
-func TestGetPriceList_EmptyData(t *testing.T) {
-	mp := moexPrices{
-		Marketdata: struct {
-			Columns []string `json:"columns"`
-			Data    [][]any  `json:"data"`
-		}{
-			Columns: []string{"SECID", "LAST"},
-			Data:    [][]any{},
-		},
-	}
-	prices := mp.getPriceList()
-	if len(prices) != 0 {
-		t.Errorf("expected 0 prices, got %d", len(prices))
-	}
-}
-
-// ----------------------------------------------------------------
-func TestGetPriceList_WrongLengthData(t *testing.T) {
-	mp := moexPrices{
-		Marketdata: struct {
-			Columns []string `json:"columns"`
-			Data    [][]any  `json:"data"`
-		}{
-			Columns: []string{"SECID", "LAST"},
-			Data: [][]any{
-				{"AAPL"},                // only one element
-				{"GOOG", 234.56, "foo"}, // three elements
-				{"MSFT", 345.67},        // valid
-			},
-		},
-	}
-	prices := mp.getPriceList()
-	if len(prices) != 1 {
-		t.Errorf("expected 1 valid price, got %d", len(prices))
-	}
-	if prices["MSFT"] != 345.67 {
-		t.Errorf("expected MSFT price 345.67, got %v", prices["MSFT"])
-	}
-}
-
-// ----------------------------------------------------------------
-func TestFetchStocks_Success(t *testing.T) {
-	// Prepare mock response
-	body := `{"marketdata":{"columns":["SECID","LAST"],"data":[["AAPL",123.45],["GOOG",234.56]]}}`
+func TestFetchPrice_StockSuccess(t *testing.T) {
+	// Mock HTTP response for stock
+	body := `{"marketdata":{"columns":["LAST"],"data":[[123.45]]}}`
 	mockResp := &http.Response{
 		StatusCode: 200,
 		Body:       io.NopCloser(bytes.NewBufferString(body)),
@@ -227,74 +136,119 @@ func TestFetchStocks_Success(t *testing.T) {
 	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
 	http.DefaultClient = client
 
-	ctx := context.Background()
 	requester := &MoexRequester{}
-	prices, err := requester.FetchStocks(ctx)
+	ctx := context.Background()
+	price, err := requester.FetchPrice(ctx, "AAPL", "stock")
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
-	if len(prices) != 2 {
-		t.Errorf("expected 2 prices, got %d", len(prices))
-	}
-	if prices["AAPL"] != 123.45 {
-		t.Errorf("expected AAPL price 123.45, got %v", prices["AAPL"])
-	}
-	if prices["GOOG"] != 234.56 {
-		t.Errorf("expected GOOG price 234.56, got %v", prices["GOOG"])
+	if price != 123.45 {
+		t.Errorf("expected price 123.45, got %v", price)
 	}
 }
 
 // ----------------------------------------------------------------
-func TestFetchStocks_QueryError(t *testing.T) {
+func TestFetchPrice_BondSuccess(t *testing.T) {
+	// Mock HTTP response for bond
+	body := `{"marketdata":{"columns":["LAST"],"data":[[101.01]]}}`
+	mockResp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+	}
+	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
+	http.DefaultClient = client
+
+	requester := &MoexRequester{}
+	ctx := context.Background()
+	price, err := requester.FetchPrice(ctx, "RU000A0JX0J2", "bond")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if price != 101.01 {
+		t.Errorf("expected price 101.01, got %v", price)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestFetchPrice_CurrencySuccess(t *testing.T) {
+	// Mock HTTP response for currency
+	body := `{"marketdata":{"columns":["LAST"],"data":[[74.32]]}}`
+	mockResp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+	}
+	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
+	http.DefaultClient = client
+
+	requester := &MoexRequester{}
+	ctx := context.Background()
+	price, err := requester.FetchPrice(ctx, "USD_RUB", "currency")
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if price != 74.32 {
+		t.Errorf("expected price 74.32, got %v", price)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestFetchPrice_UnsupportedAssetType(t *testing.T) {
+	requester := &MoexRequester{}
+	ctx := context.Background()
+	_, err := requester.FetchPrice(ctx, "AAPL", "crypto")
+	if err == nil {
+		t.Error("expected error for unsupported asset type, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestFetchPrice_NoPriceData(t *testing.T) {
+	// Mock HTTP response with no data
+	body := `{"marketdata":{"columns":["LAST"],"data":[]}}`
+	mockResp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+	}
+	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
+	http.DefaultClient = client
+
+	requester := &MoexRequester{}
+	ctx := context.Background()
+	_, err := requester.FetchPrice(ctx, "AAPL", "stock")
+	if err == nil || err.Error() != "asset AAPL not found on MOEX" {
+		t.Errorf("expected 'asset AAPL not found on MOEX' error, got %v", err)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestFetchPrice_InvalidPriceType(t *testing.T) {
+	// Mock HTTP response with wrong type
+	body := `{"marketdata":{"columns":["LAST"],"data":[["not_a_float"]]}}`
+	mockResp := &http.Response{
+		StatusCode: 200,
+		Body:       io.NopCloser(bytes.NewBufferString(body)),
+	}
+	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
+	http.DefaultClient = client
+
+	requester := &MoexRequester{}
+	ctx := context.Background()
+	_, err := requester.FetchPrice(ctx, "AAPL", "stock")
+	if err == nil || err.Error() == "" {
+		t.Error("expected error for invalid price data type, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestFetchPrice_QueryError(t *testing.T) {
 	// Simulate HTTP client error
 	client := &http.Client{Transport: &mockRoundTripper{resp: nil, err: errors.New("network error")}}
 	http.DefaultClient = client
 
-	ctx := context.Background()
 	requester := &MoexRequester{}
-	_, err := requester.FetchStocks(ctx)
+	ctx := context.Background()
+	_, err := requester.FetchPrice(ctx, "AAPL", "stock")
 	if err == nil {
-		t.Error("expected error from FetchStocks, got nil")
-	}
-}
-
-// ----------------------------------------------------------------
-func TestFetchStocks_InvalidJSON(t *testing.T) {
-	// Prepare mock response with invalid JSON
-	body := `{invalid json}`
-	mockResp := &http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(bytes.NewBufferString(body)),
-	}
-	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
-	http.DefaultClient = client
-
-	ctx := context.Background()
-	requester := &MoexRequester{}
-	_, err := requester.FetchStocks(ctx)
-	if err == nil {
-		t.Error("expected error for invalid JSON, got nil")
-	}
-}
-
-// ----------------------------------------------------------------
-func TestFetchStocks_EmptyData(t *testing.T) {
-	// Prepare mock response with empty data
-	body := `{"marketdata":{"columns":["SECID","LAST"],"data":[]}}`
-	mockResp := &http.Response{
-		StatusCode: 200,
-		Body:       io.NopCloser(bytes.NewBufferString(body)),
-	}
-	client := &http.Client{Transport: &mockRoundTripper{resp: mockResp}}
-	http.DefaultClient = client
-
-	ctx := context.Background()
-	requester := &MoexRequester{}
-	prices, err := requester.FetchStocks(ctx)
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
-	if len(prices) != 0 {
-		t.Errorf("expected 0 prices, got %d", len(prices))
+		t.Error("expected error from query, got nil")
 	}
 }

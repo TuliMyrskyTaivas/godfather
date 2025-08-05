@@ -16,12 +16,8 @@ type moexPrices struct {
 	} `json:"marketdata"`
 }
 
-type MoexPrices map[string]float64
-
 type MoexQuery interface {
-	FetchStocks(ctx context.Context) (MoexPrices, error)
-	FetchBonds(ctx context.Context) (MoexPrices, error)
-	FetchCurrencies(ctx context.Context) (MoexPrices, error)
+	FetchPrice(ctx context.Context, asset string, assetType string) (float64, error)
 }
 
 type MoexRequester struct{}
@@ -63,49 +59,48 @@ func query[T any](ctx context.Context, url string) (T, error) {
 }
 
 // ----------------------------------------------------------------
-func (mp moexPrices) getPriceList() MoexPrices {
-	prices := make(MoexPrices)
-	for _, position := range mp.Marketdata.Data {
-		if len(position) != 2 {
-			continue // Skip if the position does not have exactly two elements
-		}
-		secid, idIsOk := position[0].(string)
-		price, priceIsOk := position[1].(float64)
-		if idIsOk && priceIsOk {
-			prices[secid] = price
-		}
-	}
-	return prices
+type AssetNotFoundError struct {
+	Asset string
+}
+
+func (e *AssetNotFoundError) Error() string {
+	return fmt.Sprintf("asset %s not found on MOEX", e.Asset)
 }
 
 // ----------------------------------------------------------------
-func (requester *MoexRequester) FetchStocks(ctx context.Context) (MoexPrices, error) {
-	url := "https://iss.moex.com/iss/engines/stock/markets/shares/boards/TQBR/securities.json?iss.meta=off&iss.only=marketdata&marketdata.columns=SECID,LAST"
-	prices, err := query[moexPrices](ctx, url)
-	if err != nil {
-		return nil, err
+func (requester *MoexRequester) FetchPrice(ctx context.Context, asset string, assetType string) (float64, error) {
+	var market, mode string
+	switch assetType {
+	case "stock":
+		market = "shares"
+		mode = "TQBR"
+	case "bond":
+		market = "bonds"
+		mode = "TQCB"
+	case "currency":
+		market = "currency"
+		mode = "CETS"
+	default:
+		return 0, fmt.Errorf("unsupported asset type: %s", assetType)
 	}
-	return prices.getPriceList(), nil
-}
 
-// ----------------------------------------------------------------
-func (requester *MoexRequester) FetchBonds(ctx context.Context) (MoexPrices, error) {
-	url := "https://iss.moex.com/iss/engines/stock/markets/bonds/boards/TQCB/securities.json?iss.meta=off&iss.only=marketdata&marketdata.columns=SECID,LAST"
+	url := fmt.Sprintf("https://iss.moex.com/iss/engines/stock/markets/%s/boards/%s/securities/%s.json?iss.meta=off&iss.only=marketdata&marketdata.columns=LAST",
+		market, mode, asset)
 	prices, err := query[moexPrices](ctx, url)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	return prices.getPriceList(), nil
-}
 
-// ----------------------------------------------------------------
-func (requester *MoexRequester) FetchCurrencies(ctx context.Context) (MoexPrices, error) {
-	url := "https://iss.moex.com/iss/engines/currency/markets/selt/boards/CETS/securities.json?iss.meta=off&iss.only=marketdata&marketdata.columns=SECID,LAST"
-	prices, err := query[moexPrices](ctx, url)
-	if err != nil {
-		return nil, err
+	if len(prices.Marketdata.Data) == 0 {
+		return 0, &AssetNotFoundError{Asset: asset}
 	}
-	return prices.getPriceList(), nil
+
+	price, isOk := prices.Marketdata.Data[0][0].(float64)
+	if !isOk {
+		return 0, fmt.Errorf("invalid price data type for asset %s", asset)
+	}
+
+	return price, nil
 }
 
 // ----------------------------------------------------------------

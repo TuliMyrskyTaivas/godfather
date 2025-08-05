@@ -7,6 +7,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
+// ----------------------------------------------------------------
 func TestGetMOEXWatchlist_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -14,11 +15,11 @@ func TestGetMOEXWatchlist_Success(t *testing.T) {
 	}
 	defer db.Close() //nolint:errcheck
 
-	columns := []string{"ticker", "notification_id", "target_price", "condition", "is_active"}
+	columns := []string{"ticker", "class_id", "notification_id", "target_price", "condition", "is_active"}
 	mock.ExpectQuery("SELECT moex_assets.ticker").
 		WillReturnRows(sqlmock.NewRows(columns).
-			AddRow("SBER", 1, 250.5, "above", true).
-			AddRow("GAZP", 2, 150.0, "below", false))
+			AddRow("SBER", "stock", 1, 250.5, "above", true).
+			AddRow("GAZP", "stock", 2, 150.0, "below", false))
 
 	database := &Database{handle: db}
 	watchlist, err := database.GetMOEXWatchlist()
@@ -33,6 +34,7 @@ func TestGetMOEXWatchlist_Success(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------
 func TestGetMOEXWatchlist_QueryError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -50,6 +52,7 @@ func TestGetMOEXWatchlist_QueryError(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------
 func TestGetMOEXWatchlist_ScanError(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -69,6 +72,7 @@ func TestGetMOEXWatchlist_ScanError(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------
 func TestInitDBFromEnv_MissingEnv(t *testing.T) {
 	t.Setenv("GODFATHER_DB_CONN", "")
 	database, err := InitDBFromEnv()
@@ -80,11 +84,54 @@ func TestInitDBFromEnv_MissingEnv(t *testing.T) {
 	}
 }
 
+// ----------------------------------------------------------------
 func TestInitDBFromEnv_OpenError(t *testing.T) {
 	t.Setenv("GODFATHER_DB_CONN", "bad-conn-string")
 
 	database, err := InitDBFromEnv()
 	if err == nil || database != nil {
 		t.Error("expected error from sql.Open")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestSetMOEXWatchlistItemActiveStatus_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	ticker := "SBER"
+	active := true
+	mock.ExpectExec("UPDATE moex_watchlist SET is_active =").
+		WithArgs(active, ticker).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	database := &Database{handle: db}
+	err = database.SetMOEXWatchlistItemActiveStatus(ticker, active)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestSetMOEXWatchlistItemActiveStatus_ExecError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	ticker := "GAZP"
+	active := false
+	mock.ExpectExec("UPDATE moex_watchlist SET is_active =").
+		WithArgs(active, ticker).
+		WillReturnError(errors.New("exec failed"))
+
+	database := &Database{handle: db}
+	err = database.SetMOEXWatchlistItemActiveStatus(ticker, active)
+	if err == nil {
+		t.Error("expected error, got nil")
 	}
 }

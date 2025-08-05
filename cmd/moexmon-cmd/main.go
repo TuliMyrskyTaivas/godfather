@@ -86,6 +86,29 @@ func startMetrics(ctx context.Context, url string, port int) {
 }
 
 // ----------------------------------------------------------------
+func conditionMatch(ctx context.Context, item godfather.MOEXWatchlistItem, moex MoexQuery) bool {
+	price, err := moex.FetchPrice(ctx, item.Ticker, item.AssetClass)
+	if err != nil {
+		if _, ok := err.(*AssetNotFoundError); ok {
+			slog.Warn(fmt.Sprintf("Asset %s not found on MOEX", item.Ticker))
+		} else {
+			slog.Error(fmt.Sprintf("Failed to fetch price for %s: %s", item.Ticker, err.Error()))
+			moexFailures.Inc()
+		}
+		return false
+	}
+	slog.Debug(fmt.Sprintf("Current price for %s: %.2f", item.Ticker, price))
+	switch item.Condition {
+	case "above":
+		return price > item.TargetPrice
+	case "below":
+		return price < item.TargetPrice
+	default:
+		return false
+	}
+}
+
+// ----------------------------------------------------------------
 func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database, interval_sec int) {
 	slog.Info("Starting MOEX monitoring...")
 
@@ -104,39 +127,16 @@ func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database
 				dbFailures.Inc()
 				continue
 			}
-			slog.Debug(fmt.Sprintf("MOEX watchlist retrieved with %d items", len(watchlist)))
-
-			// Fetch prices for stocks, bonds, and currencies
-			stockPrices, err := moex.FetchStocks(ctx)
-			if err != nil {
-				slog.Error("Failed to fetch stock prices", "error", err)
-				moexFailures.Inc()
-				continue
-			}
-			slog.Debug(fmt.Sprintf("Fetched stock prices for %d stocks", len(stockPrices)))
-			bondPrices, err := moex.FetchBonds(ctx)
-			if err != nil {
-				slog.Error("Failed to fetch bond prices", "error", err)
-				moexFailures.Inc()
-				continue
-			}
-			slog.Debug(fmt.Sprintf("Fetched bond prices for %d bonds", len(bondPrices)))
-			currencyPrices, err := moex.FetchCurrencies(ctx)
-			if err != nil {
-				slog.Error("Failed to fetch currency prices", "error", err)
-				moexFailures.Inc()
-				continue
-			}
-			slog.Debug(fmt.Sprintf("Fetched currency prices for %d currencies", len(currencyPrices)))
-
+			slog.Debug(fmt.Sprintf("MOEX watchlist retrieved %d active items", len(watchlist)))
 			for _, watchlistItem := range watchlist {
-				price, exists := stockPrices[watchlistItem.Ticker]
-				if !exists {
-					slog.Warn(fmt.Sprintf("Price for watchlist item %s not found in MOEX", watchlistItem.Ticker))
-					continue
+				if conditionMatch(ctx, watchlistItem, moex) {
+					slog.Info(fmt.Sprintf("Condition met for %s, deactivating watchlist item", watchlistItem.Ticker))
+					err := db.SetMOEXWatchlistItemActiveStatus(watchlistItem.Ticker, false)
+					if err != nil {
+						slog.Error("Failed to deactivate watchlist item", "error", err)
+						dbFailures.Inc()
+					}
 				}
-
-				slog.Info(fmt.Sprintf("Current price for %s: %.2f", watchlistItem.Ticker, price))
 			}
 		}
 	}
