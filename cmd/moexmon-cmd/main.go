@@ -56,7 +56,7 @@ func setupLogger(verbose bool) *slog.Logger {
 
 // ----------------------------------------------------------------
 func startMetrics(ctx context.Context, url string, port int) {
-	slog.Info(fmt.Sprintf("Starting Prometheus metrics server at http://localhost:%d/%s...", port, url))
+	slog.Info(fmt.Sprintf("Starting Prometheus metrics server at http://localhost:%d%s...", port, url))
 
 	reg := prometheus.NewRegistry()
 	reg.MustRegister(collectors.NewGoCollector())
@@ -110,7 +110,7 @@ func conditionMatch(ctx context.Context, item godfather.MOEXWatchlistItem, moex 
 
 // ----------------------------------------------------------------
 func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database, interval_sec int) {
-	slog.Info("Starting MOEX monitoring...")
+	slog.Info(fmt.Sprintf("Starting MOEX monitoring, check interval is %d seconds...", interval_sec))
 
 	ticker := time.NewTicker(time.Duration(interval_sec) * time.Second)
 	defer ticker.Stop()
