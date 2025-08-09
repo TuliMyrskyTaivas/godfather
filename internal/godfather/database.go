@@ -100,8 +100,14 @@ func (db *Database) Close() error {
 // ----------------------------------------------------------------
 // Get MOEX watchlist from the database
 // ----------------------------------------------------------------
-func (db *Database) GetMOEXWatchlist() ([]MOEXWatchlistItem, error) {
-	rows, err := db.handle.Query("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker")
+func (db *Database) GetMOEXWatchlist(activeOnly bool) ([]MOEXWatchlistItem, error) {
+	var rows *sql.Rows
+	var err error
+	if activeOnly {
+		rows, err = db.handle.Query("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker WHERE moex_watchlist.is_active = true")
+	} else {
+		rows, err = db.handle.Query("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to query MOEX watchlist: %w", err)
 	}

@@ -133,13 +133,12 @@ func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database
 			slog.Info("Monitoring stopped due to context cancellation")
 			return
 		case <-ticker.C:
-			watchlist, err := db.GetMOEXWatchlist()
+			watchlist, err := db.GetMOEXWatchlist(true)
 			if err != nil {
 				slog.Error("Failed to retrieve MOEX watchlist", "error", err)
 				dbFailures.Inc()
 				continue
 			}
-			// TODO: now GetMOEXWatchlist returns all items, filter them by active status
 			slog.Debug(fmt.Sprintf("MOEX watchlist retrieved %d active items", len(watchlist)))
 			for _, watchlistItem := range watchlist {
 				if conditionMatch(ctx, watchlistItem, moex) {

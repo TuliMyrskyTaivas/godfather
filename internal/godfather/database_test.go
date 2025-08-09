@@ -15,14 +15,34 @@ func TestGetMOEXWatchlist_Success(t *testing.T) {
 	}
 	defer db.Close() //nolint:errcheck
 
-	columns := []string{"ticker", "class_id", "notification_id", "target_price", "condition", "is_active"}
-	mock.ExpectQuery("SELECT moex_assets.ticker").
-		WillReturnRows(sqlmock.NewRows(columns).
-			AddRow("SBER", "stock", 1, 250.5, "above", true).
-			AddRow("GAZP", "stock", 2, 150.0, "below", false))
+	rows1 := sqlmock.NewRows([]string{"ticker", "class_id", "notification_id", "target_price", "condition", "is_active"}).
+		AddRow("SBER", "stock", 1, 250.5, "above", true).
+		AddRow("GAZP", "stock", 2, 150.0, "below", false)
+	rows2 := sqlmock.NewRows([]string{"ticker", "class_id", "notification_id", "target_price", "condition", "is_active"}).
+		AddRow("SBER", "stock", 1, 250.5, "above", true).
+		AddRow("GAZP", "stock", 2, 150.0, "below", false)
+
+	mock.ExpectQuery("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker WHERE moex_watchlist.is_active = true").
+		WillReturnRows(rows1)
+	mock.ExpectQuery("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker").
+		WillReturnRows(rows2)
 
 	database := &Database{handle: db}
-	watchlist, err := database.GetMOEXWatchlist()
+
+	// Test successful retrieval of active watchlist items only
+	watchlist, err := database.GetMOEXWatchlist(true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(watchlist) != 2 {
+		t.Errorf("expected 2 items, got %d", len(watchlist))
+	}
+	if watchlist[0].Ticker != "SBER" {
+		t.Errorf("unexpected tickers: %+v", watchlist)
+	}
+
+	// Test successful retrieval of all watchlist items
+	watchlist, err = database.GetMOEXWatchlist(false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -46,7 +66,7 @@ func TestGetMOEXWatchlist_QueryError(t *testing.T) {
 		WillReturnError(errors.New("query failed"))
 
 	database := &Database{handle: db}
-	_, err = database.GetMOEXWatchlist()
+	_, err = database.GetMOEXWatchlist(false)
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
@@ -66,7 +86,7 @@ func TestGetMOEXWatchlist_ScanError(t *testing.T) {
 			AddRow("SBER", "not-an-int", 250.5, "above", true))
 
 	database := &Database{handle: db}
-	_, err = database.GetMOEXWatchlist()
+	_, err = database.GetMOEXWatchlist(false)
 	if err == nil {
 		t.Error("expected scan error, got nil")
 	}
