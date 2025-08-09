@@ -1,0 +1,89 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+    {
+      "label": "Build Moexmon service",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "moexmon:latest",
+        "--target",
+        "moexmon-cmd",
+        "-f",
+        "./Dockerfile",
+        "."
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build Godfather service",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "godfather:latest",
+        "--target",
+        "godfather-cmd",
+        "-f",
+        "./Dockerfile",
+        "."
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Build All Services",
+      "dependsOn": ["Build Moexmon service", "Build Godfather service"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+        "label": "Run tests",
+        "type": "shell",
+        "command": "docker",
+        "args": [
+            "build",
+            "-t",
+            "godfather-test:latest",
+            "--target",
+            "go-run-test-stage",
+            "-f",
+            "./Dockerfile",
+            "."
+        ],
+        "group": {
+            "kind": "test",
+            "isDefault": true
+        },
+        "problemMatcher": []
+    },
+    {
+      "label": "Clean builder cache",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "builder",
+        "prune",
+        "-a"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    }
+    ]
+}
