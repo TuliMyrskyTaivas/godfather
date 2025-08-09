@@ -10,5 +10,10 @@
         "user": "moexmon",
         "passwd": "moexmon",
         "database": "godfather"
+    },
+    "nats": {
+        "host": "nats",
+        "port": 4222,
+        "user": "moexmon"
     }
 }

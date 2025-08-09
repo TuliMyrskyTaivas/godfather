@@ -20,6 +20,12 @@ type Config struct {
 		Passwd   string `json:"passwd"`
 		Database string `json:"database"`
 	} `json:"database"`
+	NATS struct {
+		Host string `json:"host"`
+		Port int    `json:"port"`
+		User string `json:"user"`
+		Pass string `json:"pass"`
+	} `json:"nats"`
 }
 
 // ----------------------------------------------------------------

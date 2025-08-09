@@ -124,7 +124,7 @@ func (db *Database) GetMOEXWatchlist() ([]MOEXWatchlistItem, error) {
 
 // ----------------------------------------------------------------
 func (db *Database) SetMOEXWatchlistItemActiveStatus(ticker string, active bool) error {
-	query := "UPDATE moex_watchlist SET is_active = $1 WHERE ticker_id = $2)"
+	query := "UPDATE moex_watchlist SET is_active = $1 WHERE ticker_id = $2"
 	_, err := db.handle.Exec(query, active, ticker)
 	if err != nil {
 		return fmt.Errorf("failed to update MOEX watchlist item active status: %w", err)

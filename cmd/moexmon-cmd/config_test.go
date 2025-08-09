@@ -26,6 +26,10 @@ func TestParseConfig_ValidFile(t *testing.T) {
 			"user": "testuser",
 			"passwd": "testpass",
 			"database": "testdb"
+		},
+		"nats": {
+			"host": "localhost",
+			"port": 4222
 		}
 	}`
 	if _, err := tmpFile.Write([]byte(configContent)); err != nil {
@@ -47,6 +51,9 @@ func TestParseConfig_ValidFile(t *testing.T) {
 		cfg.Database.User != "testuser" || cfg.Database.Passwd != "testpass" ||
 		cfg.Database.Database != "testdb" {
 		t.Errorf("unexpected Database config: %+v", cfg.Database)
+	}
+	if cfg.NATS.Host != "localhost" || cfg.NATS.Port != 4222 {
+		t.Errorf("unexpected NATS config: %+v", cfg.NATS)
 	}
 }
 
