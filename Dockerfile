@@ -15,17 +15,22 @@ COPY internal/ ./internal/
 # Run linters
 RUN golangci-lint run --timeout 5m --config /app/.golangci.yml
 
+# MOEXMON build stage
+FROM golang:1.24 AS moexmon-build-stage
+WORKDIR /app
+COPY --from=go-lint-stage /app /app
+COPY --from=go-lint-stage /go/pkg/mod /go/pkg/mod
+RUN CGO_ENABLED=0 GOOS=linux go build -o /moexmon-cmd ./cmd/moexmon-cmd
 
-# Build stage
-FROM golang:1.24 AS go-build-stage
+# GODFATHER build stage
+FROM golang:1.24 AS godfather-build-stage
 WORKDIR /app
 COPY --from=go-lint-stage /app /app
 COPY --from=go-lint-stage /go/pkg/mod /go/pkg/mod
 RUN CGO_ENABLED=0 GOOS=linux go build -o /godfather-cmd ./cmd/godfather-cmd
-RUN CGO_ENABLED=0 GOOS=linux go build -o /moexmon-cmd ./cmd/moexmon-cmd
 
 # Run the tests in the container
-FROM go-build-stage AS go-run-test-stage
+FROM go-lint-stage AS go-run-test-stage
 WORKDIR /app
 RUN go test -coverprofile=coverage.out -v ./...
 
@@ -40,7 +45,7 @@ RUN npm run build -- --configuration=production
 # Deploy the Godfather application into a separate lean image
 FROM gcr.io/distroless/base-debian12 AS godfather-cmd
 WORKDIR /
-COPY --from=go-build-stage /godfather-cmd /godfather-cmd
+COPY --from=godfather-build-stage /godfather-cmd /godfather-cmd
 COPY --from=angular-build-stage /app/dist/ui/browser /browser
 COPY --from=go-lint-stage /go/bin/dlv /usr/loca/bin/dlv
 COPY configs/godfather.json /godfather.json
@@ -54,7 +59,7 @@ ENTRYPOINT [ "/godfather-cmd", "-v", "-c", "godfather.json" ]
 # Deploy the MOEX Monitor application into a separate lean image
 FROM gcr.io/distroless/base-debian12 AS moexmon-cmd
 WORKDIR /
-COPY --from=go-build-stage /moexmon-cmd /moexmon-cmd
+COPY --from=moexmon-build-stage /moexmon-cmd /moexmon-cmd
 COPY configs/moexmon.json /moexmon.json
 USER nonroot:nonroot
 ENTRYPOINT [ "/moexmon-cmd", "-v", "-c", "moexmon.json" ]
