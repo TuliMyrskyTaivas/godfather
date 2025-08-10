@@ -22,6 +22,13 @@ COPY --from=go-lint-stage /app /app
 COPY --from=go-lint-stage /go/pkg/mod /go/pkg/mod
 RUN CGO_ENABLED=0 GOOS=linux go build -o /moexmon-cmd ./cmd/moexmon-cmd
 
+# SQUEALER build stage
+FROM golang:1.24 AS squealer-build-stage
+WORKDIR /app
+COPY --from=go-lint-stage /app /app
+COPY --from=go-lint-stage /go/pkg/mod /go/pkg/mod
+RUN CGO_ENABLED=0 GOOS=linux go build -o /squealer-cmd ./cmd/squealer-cmd
+
 # GODFATHER build stage
 FROM golang:1.24 AS godfather-build-stage
 WORKDIR /app
@@ -63,3 +70,11 @@ COPY --from=moexmon-build-stage /moexmon-cmd /moexmon-cmd
 COPY configs/moexmon.json /moexmon.json
 USER nonroot:nonroot
 ENTRYPOINT [ "/moexmon-cmd", "-v", "-c", "moexmon.json" ]
+
+# Deploy the Squealer application into a separate lean image
+FROM gcr.io/distroless/base-debian12 AS squealer-cmd
+WORKDIR /
+COPY --from=squealer-build-stage /squealer-cmd /squealer-cmd
+COPY configs/squealer.json /squealer.json
+USER nonroot:nonroot
+ENTRYPOINT [ "/squealer-cmd", "-v", "-c", "squealer.json" ]

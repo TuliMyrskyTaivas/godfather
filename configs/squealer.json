@@ -1,0 +1,18 @@
+{
+    "prometheus": {
+        "port": 9192,
+        "url": "/metrics"
+    },
+    "database": {
+        "host": "postgres",
+        "port": 5432,
+        "user": "squealer",
+        "passwd": "squealer",
+        "database": "godfather"
+    },
+    "nats": {
+        "host": "nats",
+        "port": 4222,
+        "user": "squealer"
+    }
+}

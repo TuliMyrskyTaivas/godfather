@@ -15,7 +15,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	slogformatter "github.com/samber/slog-formatter"
 )
 
 // ----------------------------------------------------------------
@@ -43,28 +42,6 @@ var alertFailures = prometheus.NewCounter(
 		Help: "Number of failures when publishing alerts to NATS",
 	},
 )
-
-// ----------------------------------------------------------------
-func setupLogger(verbose bool) *slog.Logger {
-	var log *slog.Logger
-	var logOptions slog.HandlerOptions
-
-	if verbose {
-		logOptions.Level = slog.LevelDebug
-	} else {
-		logOptions.Level = slog.LevelInfo
-	}
-
-	log = slog.New(slogformatter.NewFormatterHandler(
-		slogformatter.TimezoneConverter(time.UTC),
-		slogformatter.TimeFormatter(time.RFC3339, nil),
-	)(
-		slog.NewTextHandler(os.Stdout, &logOptions),
-	))
-
-	slog.SetDefault(log)
-	return log
-}
 
 // ----------------------------------------------------------------
 func startMetrics(ctx context.Context, url string, port int) {
@@ -149,7 +126,7 @@ func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database
 						dbFailures.Inc()
 					}
 					alert := fmt.Sprintf("The price for %s is %s %.2f", watchlistItem.Ticker, watchlistItem.Condition, watchlistItem.TargetPrice)
-					err = mb.PublishAlert("alerts.MOEX", []byte(alert))
+					err = mb.Publish("alerts.MOEX", []byte(alert))
 					if err != nil {
 						slog.Error("Failed to publish alert", "error", err)
 						alertFailures.Inc()
@@ -178,7 +155,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	logger := setupLogger(verbose)
+	logger := godfather.SetupLogger(verbose)
 
 	config, err := ParseConfig(configPath)
 	if err != nil {
@@ -213,6 +190,13 @@ func main() {
 		return
 	}
 	defer mb.Close()
+
+	// Create the alerts stream
+	err = mb.CreateStream("alerts", "alerts.*")
+	if err != nil {
+		logger.Error("Failed to create stream for alerts", "error", err)
+		return
+	}
 
 	// Create a new MOEX requester
 	moexRequester := newMoexRequester()

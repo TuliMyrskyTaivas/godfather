@@ -37,12 +37,24 @@ services:
     env_file: godfather.env
   moexmon:
     image: moexmon:latest
+    ports:
+      - '9191:9191'
     depends_on:
       postgres:
         condition: service_healthy
       #nats:
       #  condition: service_healthy
     env_file: godfather.env
+
+  squealer:
+    image: squealer:latest
+    depends_on:
+      postgres:
+        condition: service_healthy
+      nats:
+        condition: service_started
+    ports:
+      - '9192:9192'
 
 volumes:
   godfather:

@@ -22,6 +22,26 @@
       "problemMatcher": []
     },
     {
+      "label": "Build Squealer service",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "squealer:latest",
+        "--target",
+        "squealer-cmd",
+        "-f",
+        "./Dockerfile",
+        "."
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "Build Godfather service",
       "type": "shell",
       "command": "docker",
