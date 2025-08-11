@@ -1,8 +1,8 @@
 BEGIN;
 
-INSERT INTO notifications (id, email, telegram) VALUES
-(1, 'test@gmail.com', NULL),
-(2, NULL, 'my_telegram_id');
+INSERT INTO notifications (id, email, tg_bot_token, tg_chat_id) VALUES
+(1, 'test@gmail.com', NULL, 0),
+(2, NULL, 'my_telegram_id', 123456789);
 
 INSERT INTO moex_assets (ticker, class_id, name) VALUES
 ('SBER', 'stock', 'Sberbank of Russia'),

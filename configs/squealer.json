@@ -6,8 +6,8 @@
     "database": {
         "host": "postgres",
         "port": 5432,
-        "user": "squealer",
-        "passwd": "squealer",
+        "user": "godfather",
+        "passwd": "godfather",
         "database": "godfather"
     },
     "nats": {

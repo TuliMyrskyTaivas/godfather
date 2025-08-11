@@ -27,6 +27,13 @@ type MOEXWatchlistItem struct {
 	Active         bool
 }
 
+type Notification struct {
+	ID             int
+	Email          string
+	TelegramBotID  string
+	TelegramChatID int64
+}
+
 // ----------------------------------------------------------------
 // Initialize the database connection from environment variables
 // ----------------------------------------------------------------
@@ -140,4 +147,43 @@ func (db *Database) SetMOEXWatchlistItemActiveStatus(ticker string, active bool)
 	}
 	log.Debug(fmt.Sprintf("MOEX watchlist item %s active status set to %t", ticker, active))
 	return nil
+}
+
+// ----------------------------------------------------------------
+func (db *Database) GetNotifications() ([]Notification, error) {
+	query := "SELECT id, email, tg_bot_token, tg_chat_id FROM notifications"
+	rows, err := db.handle.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query notifications: %w", err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Errorf("failed to close rows: %v", err)
+		}
+	}()
+
+	var notifications []Notification
+	for rows.Next() {
+		var n Notification
+		if err := rows.Scan(&n.ID, &n.Email, &n.TelegramBotID, &n.TelegramChatID); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		notifications = append(notifications, n)
+	}
+	return notifications, nil
+}
+
+// ----------------------------------------------------------------
+func (db *Database) GetNotificationByID(id int) (*Notification, error) {
+	query := "SELECT id, email, tg_bot_token, tg_chat_id FROM notifications WHERE id = $1"
+	row := db.handle.QueryRow(query, id)
+
+	var n Notification
+	if err := row.Scan(&n.ID, &n.Email, &n.TelegramBotID, &n.TelegramChatID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("notification with ID %d not found", id)
+		}
+		return nil, fmt.Errorf("failed to scan row: %w", err)
+	}
+	return &n, nil
 }

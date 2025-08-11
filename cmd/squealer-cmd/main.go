@@ -12,10 +12,26 @@ import (
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
 	"github.com/nats-io/nats.go"
 	"github.com/vmihailenco/msgpack"
+
+	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 // ----------------------------------------------------------------
-func handleNotifications(ctx context.Context, mb *godfather.MessageBus) {
+func sendTelegramNotification(message string, botId string, chatId int64) {
+	bot, err := tgbotapi.NewBotAPI(botId)
+	if err != nil {
+		slog.Error("Failed to create Telegram bot", "error", err)
+		return
+	}
+	msg := tgbotapi.NewMessage(chatId, message)
+	if _, err := bot.Send(msg); err != nil {
+		slog.Error("Failed to send Telegram message", "error", err)
+		return
+	}
+}
+
+// ----------------------------------------------------------------
+func handleNotifications(ctx context.Context, db *godfather.Database, mb *godfather.MessageBus) {
 	// Subscribe to JetStream "alerts"
 	subscription, err := mb.PushSubscribe("Squealer", "alerts", "alerts.MOEX", func(msg *nats.Msg) {
 		if err := msg.Ack(); err != nil {
@@ -31,6 +47,20 @@ func handleNotifications(ctx context.Context, mb *godfather.MessageBus) {
 		}
 
 		slog.Debug(fmt.Sprintf("Received alert %s for notification ID %d", alert.Subject, alert.NotificationId))
+
+		// Read the notification from the database
+		notification, err := db.GetNotificationByID(alert.NotificationId)
+		if err != nil {
+			slog.Error("Failed to get notification by ID", "error", err)
+			return
+		}
+
+		// Send telegram notification if configured
+		if notification.TelegramBotID != "" && notification.TelegramChatID != 0 {
+			sendTelegramNotification(alert.Subject, notification.TelegramBotID, notification.TelegramChatID)
+		} else {
+			slog.Warn("No Telegram bot or chat ID configured for notification", "notificationID", notification.ID)
+		}
 	})
 	if err != nil {
 		slog.Error("Failed to subscribe to alerts", "error", err)
@@ -108,7 +138,7 @@ func main() {
 	}
 
 	// Start processing notifications
-	go handleNotifications(ctx, mb)
+	go handleNotifications(ctx, db, mb)
 
 	// Wait for the signal to stop
 	<-ctx.Done()
