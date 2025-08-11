@@ -15,6 +15,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 // ----------------------------------------------------------------
@@ -98,6 +99,39 @@ func conditionMatch(ctx context.Context, item godfather.MOEXWatchlistItem, moex 
 }
 
 // ----------------------------------------------------------------
+func deactivateWatchlistItem(db *godfather.Database, ticker string) {
+	slog.Debug(fmt.Sprintf("Condition met for %s, deactivating watchlist item", ticker))
+	err := db.SetMOEXWatchlistItemActiveStatus(ticker, false)
+	if err != nil {
+		slog.Error("Failed to deactivate watchlist item", "error", err)
+		dbFailures.Inc()
+	}
+}
+
+// ----------------------------------------------------------------
+func sendAlert(item godfather.MOEXWatchlistItem, mb *godfather.MessageBus) {
+	alertText := fmt.Sprintf("The price for %s is %s %.2f", item.Ticker, item.Condition, item.TargetPrice)
+	alert := godfather.AlertMessage{
+		Subject:        alertText,
+		NotificationId: item.NotificationID,
+	}
+	data, err := msgpack.Marshal(alert)
+	if err != nil {
+		slog.Error("Failed to marshal alert message", "error", err)
+		alertFailures.Inc()
+		return
+	}
+	err = mb.Publish("alerts.MOEX", data)
+	if err != nil {
+		alertFailures.Inc()
+		slog.Error("Failed to publish alert", "error", err)
+	} else {
+		alertsPublished.Inc()
+		slog.Debug("Alert published", "message", alertText)
+	}
+}
+
+// ----------------------------------------------------------------
 func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database, mb *godfather.MessageBus, interval_sec int) {
 	slog.Info(fmt.Sprintf("Starting MOEX monitoring, check interval is %d seconds...", interval_sec))
 
@@ -119,20 +153,8 @@ func startMonitoring(ctx context.Context, moex MoexQuery, db *godfather.Database
 			slog.Debug(fmt.Sprintf("MOEX watchlist retrieved %d active items", len(watchlist)))
 			for _, watchlistItem := range watchlist {
 				if conditionMatch(ctx, watchlistItem, moex) {
-					slog.Info(fmt.Sprintf("Condition met for %s, deactivating watchlist item", watchlistItem.Ticker))
-					err := db.SetMOEXWatchlistItemActiveStatus(watchlistItem.Ticker, false)
-					if err != nil {
-						slog.Error("Failed to deactivate watchlist item", "error", err)
-						dbFailures.Inc()
-					}
-					alert := fmt.Sprintf("The price for %s is %s %.2f", watchlistItem.Ticker, watchlistItem.Condition, watchlistItem.TargetPrice)
-					err = mb.Publish("alerts.MOEX", []byte(alert))
-					if err != nil {
-						slog.Error("Failed to publish alert", "error", err)
-						alertFailures.Inc()
-					}
-					alertsPublished.Inc()
-					slog.Debug("Alert published", "message", alert)
+					deactivateWatchlistItem(db, watchlistItem.Ticker)
+					sendAlert(watchlistItem, mb)
 				}
 			}
 		}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -10,17 +11,26 @@ import (
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
 	"github.com/nats-io/nats.go"
+	"github.com/vmihailenco/msgpack"
 )
 
 // ----------------------------------------------------------------
 func handleNotifications(ctx context.Context, mb *godfather.MessageBus) {
 	// Subscribe to JetStream "alerts"
 	subscription, err := mb.PushSubscribe("Squealer", "alerts", "alerts.MOEX", func(msg *nats.Msg) {
-		// Handle the incoming message
-		slog.Debug("Received alert", "subject", msg.Subject, "data", string(msg.Data))
 		if err := msg.Ack(); err != nil {
 			slog.Error("Failed to acknowledge message", "error", err)
+			return
 		}
+
+		// Handle the incoming message
+		var alert godfather.AlertMessage
+		if err := msgpack.Unmarshal(msg.Data, &alert); err != nil {
+			slog.Error("Failed to unmarshal alert message", "error", err)
+			return
+		}
+
+		slog.Debug(fmt.Sprintf("Received alert %s for notification ID %d", alert.Subject, alert.NotificationId))
 	})
 	if err != nil {
 		slog.Error("Failed to subscribe to alerts", "error", err)

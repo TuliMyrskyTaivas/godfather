@@ -3,6 +3,7 @@ package godfather
 import (
 	"database/sql"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -104,8 +105,10 @@ func (db *Database) GetMOEXWatchlist(activeOnly bool) ([]MOEXWatchlistItem, erro
 	var rows *sql.Rows
 	var err error
 	if activeOnly {
+		slog.Debug("Retrieving active MOEX watchlist items")
 		rows, err = db.handle.Query("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker WHERE moex_watchlist.is_active = true")
 	} else {
+		slog.Debug("Retrieving all MOEX watchlist items")
 		rows, err = db.handle.Query("SELECT moex_assets.ticker, moex_assets.class_id, moex_watchlist.notification_id, moex_watchlist.target_price::numeric, moex_watchlist.condition, moex_watchlist.is_active FROM moex_watchlist INNER JOIN moex_assets ON moex_watchlist.ticker_id = moex_assets.ticker")
 	}
 	if err != nil {
