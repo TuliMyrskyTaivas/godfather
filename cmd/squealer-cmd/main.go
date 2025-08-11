@@ -15,9 +15,12 @@ import (
 // ----------------------------------------------------------------
 func handleNotifications(ctx context.Context, mb *godfather.MessageBus) {
 	// Subscribe to JetStream "alerts"
-	subscription, err := mb.Subscribe("alerts.MOEX", func(msg *nats.Msg) {
+	subscription, err := mb.PushSubscribe("Squealer", "alerts", "alerts.MOEX", func(msg *nats.Msg) {
 		// Handle the incoming message
 		slog.Debug("Received alert", "subject", msg.Subject, "data", string(msg.Data))
+		if err := msg.Ack(); err != nil {
+			slog.Error("Failed to acknowledge message", "error", err)
+		}
 	})
 	if err != nil {
 		slog.Error("Failed to subscribe to alerts", "error", err)

@@ -91,13 +91,23 @@ func (mb *MessageBus) Publish(subject string, message []byte) error {
 }
 
 // ----------------------------------------------------------------
-func (mb *MessageBus) Subscribe(subject string, handler nats.MsgHandler) (*nats.Subscription, error) {
+func (mb *MessageBus) PushSubscribe(consumer string, stream string, subject string, handler nats.MsgHandler) (*nats.Subscription, error) {
+	// Check input parameters
 	if mb.connection == nil {
 		return nil, fmt.Errorf("message bus connection is not initialized")
 	}
+	if consumer == "" {
+		return nil, fmt.Errorf("consumer cannot be empty")
+	}
+	if stream == "" {
+		return nil, fmt.Errorf("stream cannot be empty")
+	}
+	if subject == "" {
+		return nil, fmt.Errorf("subject cannot be empty")
+	}
 
 	// Subscribe to the specified subject
-	subscription, err := mb.stream.Subscribe(subject, handler)
+	subscription, err := mb.stream.Subscribe(subject, handler, nats.Durable(consumer), nats.BindStream(stream))
 	if err != nil {
 		return nil, fmt.Errorf("failed to subscribe to subject '%s': %w", subject, err)
 	}
