@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/collectors"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -46,33 +43,19 @@ var alertFailures = prometheus.NewCounter(
 
 // ----------------------------------------------------------------
 func startMetrics(ctx context.Context, url string, port int) {
-	slog.Info(fmt.Sprintf("Starting Prometheus metrics server at http://localhost:%d%s...", port, url))
-
-	reg := prometheus.NewRegistry()
-	reg.MustRegister(collectors.NewGoCollector())
-	reg.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
-	reg.MustRegister(dbFailures)
-
-	http.Handle(url, promhttp.HandlerFor(reg, promhttp.HandlerOpts{}))
-
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
-		ReadHeaderTimeout: 5 * time.Second, // Prevent Slowloris attacks
+	server, err := godfather.StartMetricsServer(ctx, url, port)
+	if err != nil {
+		slog.Error("Failed to start Prometheus metrics server", "error", err)
+		return
 	}
 
-	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			slog.Error("Prometheus metrics server failed", "error", err)
-		}
-	}()
+	server.RegisterCounter(dbFailures)
+	server.RegisterCounter(moexFailures)
+	server.RegisterCounter(alertsPublished)
+	server.RegisterCounter(alertFailures)
 
 	<-ctx.Done()
-	slog.Info("Prometheus metrics server stopped")
-
-	// Gracefully shutdown the server
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = server.Shutdown(shutdownCtx)
+	_ = server.Stop()
 }
 
 // ----------------------------------------------------------------

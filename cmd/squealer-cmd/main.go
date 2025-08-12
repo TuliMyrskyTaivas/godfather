@@ -11,9 +11,31 @@ import (
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
 	"github.com/nats-io/nats.go"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/vmihailenco/msgpack"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+)
+
+var tgMessageSent = prometheus.NewCounter(
+	prometheus.CounterOpts{
+		Name: "tg_message_sent_total",
+		Help: "Total number of Telegram messages sent",
+	},
+)
+
+var tgMessageFailed = prometheus.NewCounter(
+	prometheus.CounterOpts{
+		Name: "tg_message_failed_total",
+		Help: "Total number of failed Telegram messages",
+	},
+)
+
+var alertHandlingFailures = prometheus.NewCounter(
+	prometheus.CounterOpts{
+		Name: "alert_handling_failures_total",
+		Help: "Total number of failed alert handling attempts",
+	},
 )
 
 // ----------------------------------------------------------------
@@ -21,13 +43,17 @@ func sendTelegramNotification(message string, botId string, chatId int64) {
 	bot, err := tgbotapi.NewBotAPI(botId)
 	if err != nil {
 		slog.Error("Failed to create Telegram bot", "error", err)
+		tgMessageFailed.Inc()
 		return
 	}
 	msg := tgbotapi.NewMessage(chatId, message)
 	if _, err := bot.Send(msg); err != nil {
 		slog.Error("Failed to send Telegram message", "error", err)
+		tgMessageFailed.Inc()
 		return
 	}
+
+	tgMessageSent.Inc()
 }
 
 // ----------------------------------------------------------------
@@ -36,6 +62,7 @@ func handleNotifications(ctx context.Context, db *godfather.Database, mb *godfat
 	subscription, err := mb.PushSubscribe("Squealer", "alerts", "alerts.MOEX", func(msg *nats.Msg) {
 		if err := msg.Ack(); err != nil {
 			slog.Error("Failed to acknowledge message", "error", err)
+			alertHandlingFailures.Inc()
 			return
 		}
 
@@ -43,6 +70,7 @@ func handleNotifications(ctx context.Context, db *godfather.Database, mb *godfat
 		var alert godfather.AlertMessage
 		if err := msgpack.Unmarshal(msg.Data, &alert); err != nil {
 			slog.Error("Failed to unmarshal alert message", "error", err)
+			alertHandlingFailures.Inc()
 			return
 		}
 
@@ -52,6 +80,7 @@ func handleNotifications(ctx context.Context, db *godfather.Database, mb *godfat
 		notification, err := db.GetNotificationByID(alert.NotificationId)
 		if err != nil {
 			slog.Error("Failed to get notification by ID", "error", err)
+			alertHandlingFailures.Inc()
 			return
 		}
 
@@ -76,6 +105,22 @@ func handleNotifications(ctx context.Context, db *godfather.Database, mb *godfat
 			slog.Error("Failed to unsubscribe from alerts", "error", err)
 		}
 	}
+}
+
+// ----------------------------------------------------------------
+func startMetrics(ctx context.Context, url string, port int) {
+	server, err := godfather.StartMetricsServer(ctx, url, port)
+	if err != nil {
+		slog.Error("Failed to start Prometheus metrics server", "error", err)
+		return
+	}
+
+	server.RegisterCounter(tgMessageSent)
+	server.RegisterCounter(tgMessageFailed)
+	server.RegisterCounter(alertHandlingFailures)
+
+	<-ctx.Done()
+	_ = server.Stop()
 }
 
 // ----------------------------------------------------------------
@@ -137,6 +182,8 @@ func main() {
 		return
 	}
 
+	// Start the Prometheus metrics server
+	go startMetrics(ctx, config.Prometheus.URL, config.Prometheus.Port)
 	// Start processing notifications
 	go handleNotifications(ctx, db, mb)
 
