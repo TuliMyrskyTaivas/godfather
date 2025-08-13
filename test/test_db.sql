@@ -1,8 +1,7 @@
 BEGIN;
 
-INSERT INTO notifications (id, email, tg_bot_token, tg_chat_id) VALUES
-(1, 'test@gmail.com', NULL, 0),
-(2, NULL, 'my_telegram_id', 123456789);
+INSERT INTO notifications (id, tg_bot_token, tg_chat_id, smtp_host, smtp_port, smtp_user, smtp_pass, smtp_mail_from, smtp_encryption_type, created_at, updated_at) VALUES
+(1, 'api token', 12345678, NULL, 1, NULL, NULL, NULL, 'none', NOW(), NOW());
 
 INSERT INTO moex_assets (ticker, class_id, name) VALUES
 ('SBER', 'stock', 'Sberbank of Russia'),

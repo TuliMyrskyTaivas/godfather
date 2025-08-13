@@ -1,0 +1,2 @@
+DROP USER IF EXISTS moexmon;
+DROP USER IF EXISTS squealer;
