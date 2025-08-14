@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -14,10 +15,16 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
+// ----------------------------------------------------------------
+// Database wrapper type
+// ----------------------------------------------------------------
 type Database struct {
 	handle *sql.DB
 }
 
+// ----------------------------------------------------------------
+// MOEX watchlist item
+// ----------------------------------------------------------------
 type MOEXWatchlistItem struct {
 	Ticker         string
 	AssetClass     string
@@ -27,11 +34,47 @@ type MOEXWatchlistItem struct {
 	Active         bool
 }
 
+// ----------------------------------------------------------------
+// Notification
+// ----------------------------------------------------------------
 type Notification struct {
-	ID             int
-	Email          string
-	TelegramBotID  string
-	TelegramChatID int64
+	ID                 int
+	TelegramBotID      string
+	TelegramChatID     int64
+	SmtpHost           string
+	SmtpPort           int
+	SmtpUser           string
+	SmtpPass           string
+	SmtpFrom           string
+	SmtpEncryptionType string
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+}
+
+// ----------------------------------------------------------------
+// User
+// ----------------------------------------------------------------
+type User struct {
+	ID        int
+	Name      string
+	Password  string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// ----------------------------------------------------------------
+// User not found error
+// ----------------------------------------------------------------
+type UserNotFound struct {
+	ID   int
+	Name string
+}
+
+func (e *UserNotFound) Error() string {
+	if e.Name != "" {
+		return fmt.Sprintf("user not found: %s", e.Name)
+	}
+	return fmt.Sprintf("user not found: %d", e.ID)
 }
 
 // ----------------------------------------------------------------
@@ -106,6 +149,63 @@ func (db *Database) Close() error {
 }
 
 // ----------------------------------------------------------------
+// User management
+// ----------------------------------------------------------------
+
+// ----------------------------------------------------------------
+// Get a user by ID
+// ----------------------------------------------------------------
+func (db *Database) GetUserByID(id int) (*User, error) {
+	query := "SELECT id, name, password, created_at, updated_at FROM users WHERE id = $1"
+	row := db.handle.QueryRow(query, id)
+
+	var user User
+	if err := row.Scan(&user.ID, &user.Name, &user.Password, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &UserNotFound{ID: id}
+		}
+		return nil, fmt.Errorf("failed to scan user: %w", err)
+	}
+	return &user, nil
+}
+
+// ----------------------------------------------------------------
+// Get a user by name
+// ----------------------------------------------------------------
+func (db *Database) GetUserByName(name string) (*User, error) {
+	query := "SELECT id, name, password, created_at, updated_at FROM users WHERE name = $1"
+	row := db.handle.QueryRow(query, name)
+
+	var user User
+	if err := row.Scan(&user.ID, &user.Name, &user.Password, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, &UserNotFound{Name: name}
+		}
+		return nil, fmt.Errorf("failed to scan user: %w", err)
+	}
+	return &user, nil
+}
+
+// ----------------------------------------------------------------
+// Create a new user
+// ----------------------------------------------------------------
+func (db *Database) CreateUser(user *User) error {
+	encryptedPassword, err := GenerateHash(user.Password)
+	if err != nil {
+		return fmt.Errorf("failed to generate password hash: %w", err)
+	}
+
+	query := "INSERT INTO users (name, password, created_at, updated_at) VALUES ($1, $2, $3, $4)"
+	_, err = db.handle.Exec(query, user.Name, encryptedPassword, time.Now(), time.Now())
+	if err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+	return nil
+}
+
+// ----------------------------------------------------------------
+// MOEX watchlist management
+// ----------------------------------------------------------------
 // Get MOEX watchlist from the database
 // ----------------------------------------------------------------
 func (db *Database) GetMOEXWatchlist(activeOnly bool) ([]MOEXWatchlistItem, error) {
@@ -151,7 +251,7 @@ func (db *Database) SetMOEXWatchlistItemActiveStatus(ticker string, active bool)
 
 // ----------------------------------------------------------------
 func (db *Database) GetNotifications() ([]Notification, error) {
-	query := "SELECT id, email, tg_bot_token, tg_chat_id FROM notifications"
+	query := "SELECT * FROM notifications"
 	rows, err := db.handle.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query notifications: %w", err)
@@ -165,7 +265,7 @@ func (db *Database) GetNotifications() ([]Notification, error) {
 	var notifications []Notification
 	for rows.Next() {
 		var n Notification
-		if err := rows.Scan(&n.ID, &n.Email, &n.TelegramBotID, &n.TelegramChatID); err != nil {
+		if err := rows.Scan(&n.ID, &n.TelegramBotID, &n.TelegramChatID, &n.SmtpHost, &n.SmtpPort, &n.SmtpUser, &n.SmtpPass, &n.SmtpFrom, &n.SmtpEncryptionType, &n.CreatedAt, &n.UpdatedAt); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		notifications = append(notifications, n)
@@ -175,11 +275,11 @@ func (db *Database) GetNotifications() ([]Notification, error) {
 
 // ----------------------------------------------------------------
 func (db *Database) GetNotificationByID(id int) (*Notification, error) {
-	query := "SELECT id, email, tg_bot_token, tg_chat_id FROM notifications WHERE id = $1"
+	query := "SELECT * FROM notifications WHERE id = $1"
 	row := db.handle.QueryRow(query, id)
 
 	var n Notification
-	if err := row.Scan(&n.ID, &n.Email, &n.TelegramBotID, &n.TelegramChatID); err != nil {
+	if err := row.Scan(&n.ID, &n.TelegramBotID, &n.TelegramChatID, &n.SmtpHost, &n.SmtpPort, &n.SmtpUser, &n.SmtpPass, &n.SmtpFrom, &n.SmtpEncryptionType, &n.CreatedAt, &n.UpdatedAt); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("notification with ID %d not found", id)
 		}

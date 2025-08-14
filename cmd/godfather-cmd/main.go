@@ -17,14 +17,13 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 )
 
+// ----------------------------------------------------------------
 var (
 	sha1ver   string // sha1 revision used to build the program
 	buildTime string // when the executable was built
 )
 
-// ///////////////////////////////////////////////////////////////////
-// Setup a global logger
-// ///////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------
 func setupLogger(verbose bool) *slog.Logger {
 	var log *slog.Logger
 	var logOptions slog.HandlerOptions
@@ -46,9 +45,33 @@ func setupLogger(verbose bool) *slog.Logger {
 	return log
 }
 
-// ///////////////////////////////////////////////////////////////////
-// Entry point
-// ///////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------
+func setupAdminUser(db *godfather.Database) error {
+	adminPasswd, err := godfather.GenerateHash("admin")
+	if err != nil {
+		return fmt.Errorf("failed to generate admin password hash: %w", err)
+	}
+
+	adminUser := &godfather.User{
+		Name:     "admin",
+		Password: adminPasswd,
+	}
+
+	existingUser, err := db.GetUserByName(adminUser.Name)
+	if err != nil && err != err.(*godfather.UserNotFound) {
+		return fmt.Errorf("failed to check existing user: %w", err)
+	}
+
+	if existingUser == nil {
+		if err := db.CreateUser(adminUser); err != nil {
+			return fmt.Errorf("failed to create admin user: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// ----------------------------------------------------------------
 func main() {
 	var configPath string
 	var verbose bool
@@ -75,6 +98,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Setup database connection
 	db, err := godfather.InitDB(config.Database.Host, config.Database.Port, config.Database.User,
 		config.Database.Passwd, config.Database.Database)
 	if err != nil {
@@ -85,6 +109,12 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Create admin user if not exists
+	if err := setupAdminUser(db); err != nil {
+		log.Fatal(err)
+	}
+
+	// Setup HTTP server
 	service := echo.New()
 	service.Use(slogecho.New(logger.WithGroup("http")))
 	service.Use(middleware.Recover())
