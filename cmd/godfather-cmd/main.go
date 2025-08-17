@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
@@ -139,14 +140,41 @@ func main() {
 	r := service.Group("/api/v1")
 	r.Use(echojwt.WithConfig(echojwt.Config{
 		SigningKey:  []byte(jwtSecret),
-		TokenLookup: "header:Authorization",
+		TokenLookup: "header:Authorization:Bearer ",
 		NewClaimsFunc: func(c echo.Context) jwt.Claims {
 			return &JWTClaims{}
 		},
 		ErrorHandler: func(c echo.Context, err error) error {
+			slog.Error("JWT validation failed", "error", err, "path", c.Path(), "headers", c.Request().Header)
 			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
 		},
 	}))
+
+	// Middleware to log incoming JWT tokens (for debugging purposes)
+	r.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			authHeader := c.Request().Header.Get("Authorization")
+			if authHeader != "" {
+				tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+				slog.Debug("Incoming token",
+					"token", tokenString,
+					"path", c.Path())
+
+				// Parse without validation to inspect claims
+				token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &JWTClaims{})
+				if err == nil {
+					if claims, ok := token.Claims.(*JWTClaims); ok {
+						slog.Debug("Token claims",
+							"user_id", claims.UserID,
+							"name", claims.Name,
+							"expires_at", claims.ExpiresAt,
+							"issued_at", claims.IssuedAt)
+					}
+				}
+			}
+			return next(c)
+		}
+	})
 
 	// User routes
 	r.POST("/users", createUserHandler(db))
