@@ -8,39 +8,15 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
 	"github.com/golang-jwt/jwt/v5"
 	slogecho "github.com/samber/slog-echo"
-	slogformatter "github.com/samber/slog-formatter"
 
 	echojwt "github.com/labstack/echo-jwt/v4" // Import echo-jwt separately
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
-
-// ----------------------------------------------------------------
-func setupLogger(verbose bool) *slog.Logger {
-	var log *slog.Logger
-	var logOptions slog.HandlerOptions
-
-	if verbose {
-		logOptions.Level = slog.LevelDebug
-	} else {
-		logOptions.Level = slog.LevelInfo
-	}
-
-	log = slog.New(slogformatter.NewFormatterHandler(
-		slogformatter.TimezoneConverter(time.UTC),
-		slogformatter.TimeFormatter(time.RFC3339, nil),
-	)(
-		slog.NewTextHandler(os.Stdout, &logOptions),
-	))
-
-	slog.SetDefault(log)
-	return log
-}
 
 // ----------------------------------------------------------------
 func setupAdminUser(db *godfather.Database) error {
@@ -95,7 +71,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	logger := setupLogger(verbose)
+	logger := godfather.SetupLogger(verbose)
 
 	config, err := ReadConfig(configPath)
 	if err != nil {
