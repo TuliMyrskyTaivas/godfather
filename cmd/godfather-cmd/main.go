@@ -5,22 +5,18 @@ import (
 	"fmt"
 	"log"
 	"log/slog"
+	"net/http"
 	"os"
-	"runtime/debug"
 	"time"
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
+	"github.com/golang-jwt/jwt/v5"
 	slogecho "github.com/samber/slog-echo"
 	slogformatter "github.com/samber/slog-formatter"
 
+	echojwt "github.com/labstack/echo-jwt/v4" // Import echo-jwt separately
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-)
-
-// ----------------------------------------------------------------
-var (
-	sha1ver   string // sha1 revision used to build the program
-	buildTime string // when the executable was built
 )
 
 // ----------------------------------------------------------------
@@ -72,6 +68,16 @@ func setupAdminUser(db *godfather.Database) error {
 }
 
 // ----------------------------------------------------------------
+type DefaultValidator struct{}
+
+func (v *DefaultValidator) Validate(i interface{}) error {
+	if _, ok := i.(interface{ Validate() error }); !ok {
+		return nil
+	}
+	return i.(interface{ Validate() error }).Validate()
+}
+
+// ----------------------------------------------------------------
 func main() {
 	var configPath string
 	var verbose bool
@@ -89,9 +95,6 @@ func main() {
 	}
 
 	logger := setupLogger(verbose)
-
-	buildInfo, _ := debug.ReadBuildInfo()
-	slog.Debug(fmt.Sprintf("Built by %s at %s (SHA1=%s)", buildInfo.GoVersion, buildTime, sha1ver))
 
 	config, err := ReadConfig(configPath)
 	if err != nil {
@@ -114,17 +117,42 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Get JWT secret from environment
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is not set")
+	}
+
 	// Setup HTTP server
 	service := echo.New()
 	service.Use(slogecho.New(logger.WithGroup("http")))
 	service.Use(middleware.Recover())
+	service.Validator = &DefaultValidator{}
 
 	service.File("/*", "brower/index.html")
 	service.Static("/", "browser")
 
-	service.GET("/sources", godfather.GetSources(db))
-	service.PUT("/sources", godfather.PutSource(db))
-	service.DELETE("/sources/:id", godfather.DeleteSource(db))
+	// Public routes (no authentication required)
+	service.POST("/api/v1/login", LoginHandler(db, jwtSecret))
+
+	// Restricted routes
+	r := service.Group("/api/v1")
+	r.Use(echojwt.WithConfig(echojwt.Config{
+		SigningKey:  []byte(jwtSecret),
+		TokenLookup: "header:Authorization",
+		NewClaimsFunc: func(c echo.Context) jwt.Claims {
+			return &JWTClaims{}
+		},
+		ErrorHandler: func(c echo.Context, err error) error {
+			return echo.NewHTTPError(http.StatusUnauthorized, "Invalid or expired token")
+		},
+	}))
+
+	// User routes
+	r.POST("/users", createUserHandler(db))
+	r.GET("/users", getUsersHandler(db))
+	r.PUT("/users/:id", updateUserHandler(db))
+	r.DELETE("/users/:id", deleteUserHandler(db))
 
 	err = service.StartTLS(fmt.Sprintf("%s:%d", config.Interface.Addr, config.Interface.Port),
 		config.Interface.TLS.Cert, config.Interface.TLS.Key)

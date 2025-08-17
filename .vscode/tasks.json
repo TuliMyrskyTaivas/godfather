@@ -71,6 +71,18 @@
       "problemMatcher": []
     },
     {
+      "label": "Generate OpenAPI",
+      "type": "shell",
+      "command": "oapi-codegen",
+      "args": [
+        "-generate types,server",
+        "-package api",
+        "-o",
+        "./api/godfather.gen.go",
+        "./api/godfather.yaml"
+      ]
+    },
+    {
         "label": "Run tests",
         "type": "shell",
         "command": "docker",

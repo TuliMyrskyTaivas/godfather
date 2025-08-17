@@ -156,7 +156,7 @@ func (db *Database) Close() error {
 // Get a user by ID
 // ----------------------------------------------------------------
 func (db *Database) GetUserByID(id int) (*User, error) {
-	query := "SELECT id, name, password, created_at, updated_at FROM users WHERE id = $1"
+	query := "SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users WHERE id = $1"
 	row := db.handle.QueryRow(query, id)
 
 	var user User
@@ -173,7 +173,7 @@ func (db *Database) GetUserByID(id int) (*User, error) {
 // Get a user by name
 // ----------------------------------------------------------------
 func (db *Database) GetUserByName(name string) (*User, error) {
-	query := "SELECT id, name, password, created_at, updated_at FROM users WHERE name = $1"
+	query := "SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users WHERE name = $1"
 	row := db.handle.QueryRow(query, name)
 
 	var user User
@@ -190,15 +190,60 @@ func (db *Database) GetUserByName(name string) (*User, error) {
 // Create a new user
 // ----------------------------------------------------------------
 func (db *Database) CreateUser(user *User) error {
-	encryptedPassword, err := GenerateHash(user.Password)
-	if err != nil {
-		return fmt.Errorf("failed to generate password hash: %w", err)
-	}
-
 	query := "INSERT INTO users (name, password, created_at, updated_at) VALUES ($1, $2, $3, $4)"
-	_, err = db.handle.Exec(query, user.Name, encryptedPassword, time.Now(), time.Now())
+	_, err := db.handle.Exec(query, user.Name, user.Password, time.Now(), time.Now())
 	if err != nil {
 		return fmt.Errorf("failed to create user: %w", err)
+	}
+	return nil
+}
+
+// ----------------------------------------------------------------
+// Get users list
+// ----------------------------------------------------------------
+func (db *Database) GetUsers() ([]*User, error) {
+	query := "SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users"
+	rows, err := db.handle.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query users: %w", err)
+	}
+	defer func() {
+		if err := rows.Close(); err != nil {
+			log.Errorf("failed to close rows: %v", err)
+		}
+	}()
+
+	var users []*User
+	for rows.Next() {
+		var user User
+		if err := rows.Scan(&user.ID, &user.Name, &user.Password, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		users = append(users, &user)
+	}
+	return users, nil
+}
+
+// ----------------------------------------------------------------
+// Update user
+// ----------------------------------------------------------------
+func (db *Database) UpdateUser(user *User) error {
+	query := "UPDATE users SET name = $1, password = $2, updated_at = $3 WHERE id = $4"
+	_, err := db.handle.Exec(query, user.Name, user.Password, time.Now(), user.ID)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	return nil
+}
+
+// ----------------------------------------------------------------
+// Delete user
+// ----------------------------------------------------------------
+func (db *Database) DeleteUser(id int) error {
+	query := "DELETE FROM users WHERE id = $1"
+	_, err := db.handle.Exec(query, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete user: %w", err)
 	}
 	return nil
 }

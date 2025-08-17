@@ -30,3 +30,6 @@ go.work.sum
 # Keys and certificates
 *.crt
 *.key
+
+# Local secrets
+secrets.env

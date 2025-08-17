@@ -34,7 +34,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: godfather.env
+    env_file:
+      - godfather.env
+      - secrets.env
   moexmon:
     image: moexmon:latest
     ports:

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
@@ -64,6 +65,7 @@ func VerifyPassword(password, storedHash string) (bool, error) {
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
+		slog.Error("Failed to decode salt", "error", err)
 		return false, err
 	}
 

@@ -3,6 +3,7 @@ package godfather
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
 )
@@ -151,6 +152,278 @@ func TestSetMOEXWatchlistItemActiveStatus_ExecError(t *testing.T) {
 
 	database := &Database{handle: db}
 	err = database.SetMOEXWatchlistItemActiveStatus(ticker, active)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUserByID_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	rows := sqlmock.NewRows([]string{"id", "name", "password", "created_at", "updated_at"}).
+		AddRow(1, "alice", "hashedpass", time.Now(), time.Now())
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users WHERE id =").
+		WithArgs(1).
+		WillReturnRows(rows)
+
+	database := &Database{handle: db}
+	user, err := database.GetUserByID(1)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user.Name != "alice" {
+		t.Errorf("expected name alice, got %s", user.Name)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUserByID_NotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users WHERE id =").
+		WithArgs(2).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "password", "created_at", "updated_at"}))
+
+	database := &Database{handle: db}
+	user, err := database.GetUserByID(2)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if user != nil {
+		t.Error("expected nil user")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUserByName_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	rows := sqlmock.NewRows([]string{"id", "name", "password", "created_at", "updated_at"}).
+		AddRow(1, "bob", "hashedpass", time.Now(), time.Now())
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users WHERE name =").
+		WithArgs("bob").
+		WillReturnRows(rows)
+
+	database := &Database{handle: db}
+	user, err := database.GetUserByName("bob")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user.Name != "bob" {
+		t.Errorf("expected name bob, got %s", user.Name)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUserByName_NotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users WHERE name =").
+		WithArgs("charlie").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "password", "created_at", "updated_at"}))
+
+	database := &Database{handle: db}
+	user, err := database.GetUserByName("charlie")
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if user != nil {
+		t.Error("expected nil user")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestCreateUser_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectExec("INSERT INTO users").
+		WithArgs("dave", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	database := &Database{handle: db}
+	user := &User{Name: "dave", Password: "secret"}
+	err = database.CreateUser(user)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestCreateUser_ExecError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectExec("INSERT INTO users").
+		WithArgs("frank", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnError(errors.New("insert failed"))
+
+	database := &Database{handle: db}
+	user := &User{Name: "frank", Password: "secret"}
+	err = database.CreateUser(user)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUsers_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	rows := sqlmock.NewRows([]string{"id", "name", "password", "created_at", "updated_at"}).
+		AddRow(1, "alice", "pass1", time.Now(), time.Now()).
+		AddRow(2, "bob", "pass2", time.Now(), time.Now())
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users").
+		WillReturnRows(rows)
+
+	database := &Database{handle: db}
+	users, err := database.GetUsers()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(users) != 2 {
+		t.Errorf("expected 2 users, got %d", len(users))
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUsers_QueryError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users").
+		WillReturnError(errors.New("query failed"))
+
+	database := &Database{handle: db}
+	_, err = database.GetUsers()
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestGetUsers_ScanError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	rows := sqlmock.NewRows([]string{"id", "name", "password", "created_at", "updated_at"}).
+		AddRow("not-an-int", "bob", "pass", "2023-01-01 00:00:00", "2023-01-02 00:00:00")
+	mock.ExpectQuery("SELECT id, name, password, created_at::timestamp, updated_at::timestamp FROM users").
+		WillReturnRows(rows)
+
+	database := &Database{handle: db}
+	_, err = database.GetUsers()
+	if err == nil {
+		t.Error("expected scan error, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestUpdateUser_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectExec("UPDATE users SET name =").
+		WithArgs("alice", "hashedpass", sqlmock.AnyArg(), 1).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	database := &Database{handle: db}
+	user := &User{ID: 1, Name: "alice", Password: "hashedpass"}
+	err = database.UpdateUser(user)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestUpdateUser_ExecError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectExec("UPDATE users SET name =").
+		WithArgs("bob", "hashedpass", sqlmock.AnyArg(), 2).
+		WillReturnError(errors.New("update failed"))
+
+	database := &Database{handle: db}
+	user := &User{ID: 2, Name: "bob", Password: "hashedpass"}
+	err = database.UpdateUser(user)
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+}
+
+// ----------------------------------------------------------------
+func TestDeleteUser_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectExec("DELETE FROM users WHERE id =").
+		WithArgs(1).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	database := &Database{handle: db}
+	err = database.DeleteUser(1)
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ----------------------------------------------------------------
+func TestDeleteUser_ExecError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to open sqlmock database: %v", err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	mock.ExpectExec("DELETE FROM users WHERE id =").
+		WithArgs(2).
+		WillReturnError(errors.New("delete failed"))
+
+	database := &Database{handle: db}
+	err = database.DeleteUser(2)
 	if err == nil {
 		t.Error("expected error, got nil")
 	}
