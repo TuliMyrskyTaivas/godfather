@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/TuliMyrskyTaivas/godfather/internal/godfather"
@@ -20,7 +21,7 @@ import (
 
 // ----------------------------------------------------------------
 func setupAdminUser(db *godfather.Database) error {
-	adminPasswd, err := godfather.GenerateHash("admin")
+	adminPasswd, err := godfather.GenerateHash("admin123")
 	if err != nil {
 		return fmt.Errorf("failed to generate admin password hash: %w", err)
 	}
@@ -106,7 +107,10 @@ func main() {
 	service.Use(middleware.Recover())
 	service.Validator = &DefaultValidator{}
 
-	service.File("/*", "brower/index.html")
+	// service.File("/*", "brower/index.html")
+	// service.Static("/", "browser")
+
+	// Serve static files (JS, CSS, images, etc.)
 	service.Static("/", "browser")
 
 	// Public routes (no authentication required)
@@ -157,6 +161,22 @@ func main() {
 	r.GET("/users", getUsersHandler(db))
 	r.PUT("/users/:id", updateUserHandler(db))
 	r.DELETE("/users/:id", deleteUserHandler(db))
+
+	// Catch-all route for SPA - must be after static and API routes
+	service.GET("/*", func(c echo.Context) error {
+		slog.Debug(fmt.Sprintf("Catch-all route triggered for: %s\n", c.Request().URL.Path))
+		// Check if the file exists in the static directory first
+		requestedFile := c.Request().URL.Path
+		filePath := filepath.Join("browser", requestedFile)
+
+		// If the file doesn't exist, serve index.html for SPA routing
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			return c.File("browser/index.html")
+		}
+
+		// Let the static file handler serve the existing file
+		return c.File(filePath)
+	})
 
 	err = service.StartTLS(fmt.Sprintf("%s:%d", config.Interface.Addr, config.Interface.Port),
 		config.Interface.TLS.Cert, config.Interface.TLS.Key)
