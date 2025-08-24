@@ -107,9 +107,6 @@ func main() {
 	service.Use(middleware.Recover())
 	service.Validator = &DefaultValidator{}
 
-	// service.File("/*", "brower/index.html")
-	// service.Static("/", "browser")
-
 	// Serve static files (JS, CSS, images, etc.)
 	service.Static("/", "browser")
 
@@ -164,7 +161,6 @@ func main() {
 
 	// Catch-all route for SPA - must be after static and API routes
 	service.GET("/*", func(c echo.Context) error {
-		slog.Debug(fmt.Sprintf("Catch-all route triggered for: %s\n", c.Request().URL.Path))
 		// Check if the file exists in the static directory first
 		requestedFile := c.Request().URL.Path
 		filePath := filepath.Join("browser", requestedFile)
