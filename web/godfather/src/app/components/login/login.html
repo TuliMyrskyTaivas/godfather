@@ -1,0 +1,75 @@
+<div class="login-container">
+  <nz-card nzTitle="Godfather" class="login-card">
+    <div class="horizontal-form">
+      <!-- Error message container inside the form -->
+      <div class="error-container">
+        @if (errorMessage) {
+          <div class="error-message">
+            {{ errorMessage }}
+          </div>
+        }
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <div class="form-row">
+          <nz-form-label nzRequired>Username</nz-form-label>
+          <nz-form-control [nzErrorTip]="usernameErrorTpl">
+            <input
+              nz-input
+              formControlName="username"
+              placeholder="Enter your username"
+              [attr.aria-label]="'Username input'"
+            />
+            <ng-template #usernameErrorTpl let-control>
+              @if (control.errors?.['required']) {
+                <span>Username is required</span>
+              }
+              @if (control.errors?.['minlength']) {
+                <span>Username must be at least 3 characters</span>
+              }
+            </ng-template>
+          </nz-form-control>
+        </div>
+
+        <div class="form-row">
+          <nz-form-label nzRequired>Password</nz-form-label>
+          <nz-form-control [nzErrorTip]="passwordErrorTpl">
+            <input
+              nz-input
+              type="password"
+              formControlName="password"
+              placeholder="Enter your password"
+              [attr.aria-label]="'Password input'"
+            />
+            <ng-template #passwordErrorTpl let-control>
+              @if (control.errors?.['required']) {
+                <span>Password is required</span>
+              }
+              @if (control.errors?.['minlength']) {
+                <span>Password must be at least 6 characters</span>
+              }
+            </ng-template>
+          </nz-form-control>
+        </div>
+
+        <div class="form-actions">
+          <button
+            nz-button
+            nzType="primary"
+            [nzLoading]="isLoading"
+            [disabled]="loginForm.invalid"
+            type="submit"
+          >
+            {{ isLoading ? 'Logging in...' : 'Login' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </nz-card>
+
+  @if (isLoading) {
+    <div class="loading-overlay">
+      <nz-spin nzSize="large"></nz-spin>
+    </div>
+  }
+</div>

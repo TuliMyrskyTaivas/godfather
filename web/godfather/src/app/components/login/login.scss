@@ -1,0 +1,272 @@
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: white; // Changed to white background
+  padding: 20px;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  .login-card {
+    width: 100%;
+    max-width: 440px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow:
+      0 4px 20px rgba(0, 0, 0, 0.1),
+      0 2px 8px rgba(0, 0, 0, 0.05);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    transition: transform 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 6px 24px rgba(0, 0, 0, 0.12),
+        0 3px 10px rgba(0, 0, 0, 0.06);
+    }
+
+    ::ng-deep {
+      .ant-card-head {
+        border-bottom: 1px solid #e2e8f0;
+        background: #a6bdd4;
+        margin: -1px -1px 0 -1px;
+        border-radius: 12px 12px 0 0;
+
+        .ant-card-head-title {
+          text-align: center;
+          font-size: 24px;
+          font-weight: 600;
+          color: #2d3748;
+          padding: 20px 0;
+        }
+      }
+
+      .ant-card-body {
+        padding: 28px;
+      }
+    }
+
+    .horizontal-form {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .form-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-left: 8px; // Space from left edge
+
+      nz-form-label {
+        flex: 0 0 90px; // Slightly smaller fixed width for labels
+        text-align: right;
+        margin-bottom: 0;
+        font-weight: 500;
+        color: #4a5568;
+        font-size: 14px;
+      }
+
+      nz-form-control {
+        flex: 1;
+      }
+    }
+
+    input {
+      border-radius: 8px;
+      padding: 10px 14px; // Reduced padding for smaller height
+      font-size: 14px;
+      border: 1px solid #d1d5db;
+      background: #ffffff;
+      transition: all 0.2s ease;
+      height: 40px; // Reduced height
+      width: 90%;
+
+      &::placeholder {
+        color: #9ca3af;
+      }
+
+      &:hover {
+        border-color: #9ca3af;
+      }
+
+      &:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+        outline: none;
+      }
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 24px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+      margin-left: 8px; // Space from left edge
+
+      button {
+        height: 40px; // Reduced height to match inputs
+        border-radius: 8px;
+        font-weight: 500;
+        font-size: 14px;
+        padding: 0 24px;
+        background: #a6bdd4;
+        border: none;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        min-width: 100px;
+
+        &:hover:not([disabled]) {
+          background: #a6bdd4;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+        }
+
+        &:active:not([disabled]) {
+          transform: translateY(0);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        &[disabled] {
+          background: #9ca3af;
+          box-shadow: none;
+          cursor: not-allowed;
+        }
+      }
+    }
+
+    // Error message styling - inside the form
+    .error-container {
+      margin-bottom: 20px;
+      margin-left: 8px; // Space from left edge
+
+      .error-message {
+        background: #fef2f2;
+        color: #dc2626;
+        padding: 12px 16px;
+        border-radius: 8px;
+        border: 1px solid #fecaca;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 500;
+        font-size: 14px;
+        margin: 0;
+
+        &::before {
+          content: '⚠️';
+          font-size: 14px;
+        }
+      }
+    }
+
+    .form-footer {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 1px solid #e5e7eb;
+
+      p {
+        color: #6b7280;
+        font-size: 13px;
+        margin: 0;
+
+        a {
+          color: #3b82f6;
+          text-decoration: none;
+          font-weight: 500;
+          transition: color 0.2s ease;
+
+          &:hover {
+            color: #2563eb;
+            text-decoration: underline;
+          }
+        }
+      }
+    }
+  }
+
+  // Error states for inputs
+  .ant-form-item-has-error {
+    input {
+      border-color: #dc2626;
+      background: #fef2f2;
+
+      &:focus {
+        border-color: #dc2626;
+        box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+      }
+    }
+  }
+
+  // Loading animation
+  .loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    z-index: 10;
+  }
+}
+
+// Responsive design
+@media (max-width: 600px) {
+  .login-container {
+    padding: 16px;
+    background: white;
+
+    .login-card {
+      max-width: 100%;
+      border-radius: 8px;
+
+      ::ng-deep {
+        .ant-card-head-title {
+          font-size: 20px;
+          padding: 16px 0;
+        }
+
+        .ant-card-body {
+          padding: 20px;
+        }
+      }
+
+      .form-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+        margin-left: 0;
+
+        nz-form-label {
+          flex: none;
+          text-align: left;
+          margin-bottom: 2px;
+        }
+      }
+
+      input {
+        padding: 8px 12px;
+        height: 36px;
+      }
+
+      .form-actions {
+        margin-left: 0;
+
+        button {
+          height: 36px;
+          width: 100%;
+        }
+      }
+
+      .error-container {
+        margin-left: 0;
+      }
+    }
+  }
+}

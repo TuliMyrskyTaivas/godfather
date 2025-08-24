@@ -44,17 +44,17 @@ RUN go test -coverprofile=coverage.out -v ./...
 # Build Angular frontend
 FROM node:24-alpine AS angular-build-stage
 WORKDIR /app
-COPY web/package.json web/package-lock.json ./
+COPY web/godfather/package.json web/godfather/package-lock.json ./
 RUN npm install
-COPY web/ .
+COPY web/godfather/ .
 RUN npm run build -- --configuration=production
 
 # Deploy the Godfather application into a separate lean image
 FROM gcr.io/distroless/base-debian12 AS godfather-cmd
 WORKDIR /
 COPY --from=godfather-build-stage /godfather-cmd /godfather-cmd
-COPY --from=angular-build-stage /app/dist/ui/browser /browser
-COPY --from=go-lint-stage /go/bin/dlv /usr/loca/bin/dlv
+COPY --from=angular-build-stage /app/dist/godfather/browser /browser
+COPY --from=go-lint-stage /go/bin/dlv /usr/local/bin/dlv
 COPY configs/godfather.json /godfather.json
 COPY deployments/godfather.key /godfather.key
 COPY deployments/godfather.crt /godfather.crt

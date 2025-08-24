@@ -11,10 +11,21 @@ import (
 )
 
 // WebUser represents the user model for the web
-type WebUser struct {
+type UserRequest struct {
 	ID       int    `json:"id"`
 	Name     string `json:"name" validate:"required,min=2,max=100"`
 	Password string `json:"password" validate:"required,min=10,max=100"`
+}
+
+// ----------------------------------------------------------------
+func (r *UserRequest) Validate() error {
+	if r.Name == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Name is required")
+	}
+	if r.Password == "" {
+		return echo.NewHTTPError(http.StatusBadRequest, "Password is required")
+	}
+	return nil
 }
 
 // ----------------------------------------------------------------
@@ -24,7 +35,7 @@ func createUserHandler(db *godfather.Database) echo.HandlerFunc {
 		claims := token.Claims.(*JWTClaims)
 		userID := claims.UserID
 
-		u := new(WebUser)
+		u := new(UserRequest)
 		if err := c.Bind(u); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 		}
@@ -79,7 +90,7 @@ func getUsersHandler(db *godfather.Database) echo.HandlerFunc {
 // ----------------------------------------------------------------
 func updateUserHandler(db *godfather.Database) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		u := new(WebUser)
+		u := new(UserRequest)
 		if err := c.Bind(u); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 		}
@@ -125,7 +136,7 @@ func updateUserHandler(db *godfather.Database) echo.HandlerFunc {
 // ----------------------------------------------------------------
 func deleteUserHandler(db *godfather.Database) echo.HandlerFunc {
 	return func(c echo.Context) error {
-		u := new(WebUser)
+		u := new(UserRequest)
 		if err := c.Bind(u); err != nil {
 			return echo.NewHTTPError(http.StatusBadRequest, "Invalid request body")
 		}
